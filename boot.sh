@@ -19,7 +19,7 @@ echo "[GardaCyber] boot: running migrations"
 php artisan migrate --force
 
 echo "[GardaCyber] boot: seeding demo data"
-php artisan app:demo-seed
+GARDA_SEED_FORCE=true php artisan app:demo-seed
 
 echo "[GardaCyber] boot: starting server on :$PORT"
 exec php artisan serve --host=0.0.0.0 --port="${PORT:-8080}"
