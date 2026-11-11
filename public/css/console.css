@@ -1310,3 +1310,132 @@ body.sidebar-is-open { overflow: hidden; }
 .copilot-widget .copilot-status {
   padding: 0 16px 10px;
 }
+
+/* ==========================================================================
+   Dashboard interaction polish
+   ========================================================================== */
+
+/* KPI cards: smooth hover + visible arrow affordance */
+.kpi-link {
+  position: relative;
+  transition: border-color var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.kpi-link:hover,
+.kpi-link:focus-visible {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.kpi-link .k-arrow {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--fg-subtle);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--dur-fast), transform var(--dur-fast);
+}
+
+.kpi-link:hover .k-arrow,
+.kpi-link:focus-visible .k-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Banner as actionable link */
+.banner {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-fast), transform var(--dur-fast);
+}
+
+.banner:hover,
+.banner:focus-visible {
+  background: rgba(239, 68, 68, 0.12);
+  transform: translateX(2px);
+  outline: none;
+}
+
+.banner-high:hover,
+.banner-high:focus-visible { background: rgba(245, 158, 11, 0.12); }
+.banner-clear:hover,
+.banner-clear:focus-visible { background: rgba(16, 185, 129, 0.12); }
+
+.banner .banner-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* Findings links */
+.finding-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color var(--dur-fast), color var(--dur-fast);
+}
+
+.finding-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Table rows & incident rows as clickable entries */
+.tbl-row-link {
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.tbl-row-link:hover,
+.tbl-row-link:focus-visible {
+  background: var(--bg-surface-2);
+  outline: none;
+}
+
+.incident-row-link {
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.incident-row-link:hover,
+.incident-row-link:focus-visible {
+  background: var(--bg-surface-2);
+  border-color: var(--border-default);
+  outline: none;
+}
+
+/* Rating rows keep arrow affordance */
+.rating-row {
+  position: relative;
+  transition: border-color var(--dur-fast), transform var(--dur-fast), background var(--dur-fast);
+}
+
+.rating-row:hover,
+.rating-row:focus-visible {
+  border-color: var(--border-default);
+  background: var(--bg-surface-2);
+  transform: translateX(2px);
+  outline: none;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .kpi-link,
+  .banner,
+  .tbl-row-link,
+  .incident-row-link,
+  .rating-row,
+  .finding-link {
+    transition: none;
+  }
+  .kpi-link .k-arrow {
+    transition: none;
+  }
+}
