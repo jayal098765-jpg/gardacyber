@@ -132,6 +132,40 @@
   </div>
 
   <script src="{{ asset('js/console.js') }}"></script>
+  <script src="{{ asset('js/copilot-widget.js') }}" defer></script>
   @stack('scripts')
+
+  {{-- Garda Copilot floating widget --}}
+  <button type="button" class="copilot-fab" id="copilotFab" data-store-url="{{ route('ai-chat.store') }}" aria-label="Buka Garda Copilot" aria-expanded="false">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </button>
+
+  <div class="copilot-widget" id="copilotWidget" aria-hidden="true">
+    <div class="copilot-widget-head">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="copilot-avatar">G</span>
+        <div>
+          <div class="copilot-widget-title">Garda Copilot</div>
+          <div class="copilot-widget-sub">Bahasa Indonesia · konteks workspace</div>
+        </div>
+      </div>
+      <button type="button" class="copilot-widget-close" id="copilotWidgetClose" aria-label="Tutup">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="copilot-widget-messages" id="copilotWidgetMessages">
+      <div class="copilot-msg assistant">
+        <div class="copilot-avatar">G</div>
+        <div class="copilot-bubble">Halo! Saya Garda Copilot 👋 — tanya apa saja tentang projectmu.</div>
+      </div>
+    </div>
+    <div class="copilot-widget-input-row">
+      <textarea id="copilotWidgetInput" class="input" rows="1" maxlength="1000" placeholder="Tanya sesuatu..." aria-label="Pesan untuk Garda Copilot"></textarea>
+      <button type="button" class="btn btn-primary" id="copilotWidgetSend">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      </button>
+    </div>
+    <div class="copilot-status" id="copilotWidgetStatus" role="status"></div>
+  </div>
 </body>
 </html>
