@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\RecaptchaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,8 +18,14 @@ class RegisterController extends Controller
         return view('auth.signup');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, RecaptchaService $recaptcha): RedirectResponse
     {
+        if (! $recaptcha->verify($request->input('g-recaptcha-response'))) {
+            return back()
+                ->withInput($request->except(['password', 'password_confirmation']))
+                ->withErrors(['recaptcha' => 'reCAPTCHA verification failed. Please try again.']);
+        }
+
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'display_name' => ['nullable', 'string', 'max:255'],

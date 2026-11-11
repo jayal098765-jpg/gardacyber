@@ -27,6 +27,11 @@
           <label for="password_confirmation">Confirm password</label>
           <input id="password_confirmation" class="input" type="password" name="password_confirmation" required autocomplete="new-password" />
         </div>
+        @if (config('services.recaptcha.site_key'))
+          <div class="field">
+            <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}" style="transform: scale(0.92); transform-origin: left center;"></div>
+          </div>
+        @endif
         <button type="submit" class="btn btn-primary auth-submit">Create account</button>
       </form>
 
@@ -34,4 +39,10 @@
     </div>
   </div>
 </section>
+
+@if (config('services.recaptcha.site_key'))
+@push('scripts')
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+@endpush
+@endif
 @endsection
