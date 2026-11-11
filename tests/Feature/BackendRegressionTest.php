@@ -15,10 +15,8 @@ class BackendRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
+    private function fakeRecaptchaOk(): void
     {
-        parent::setUp();
-
         Http::fake([
             'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true]),
         ]);
@@ -68,6 +66,8 @@ class BackendRegressionTest extends TestCase
 
     public function test_login_attempts_are_throttled(): void
     {
+        $this->fakeRecaptchaOk();
+
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->post('/login', ['email' => 'missing@gardacyber.test', 'password' => 'wrong', 'g-recaptcha-response' => 'dummy-token'])->assertSessionHasErrors('email');
         }
@@ -78,6 +78,8 @@ class BackendRegressionTest extends TestCase
 
     public function test_signup_attempts_are_throttled(): void
     {
+        $this->fakeRecaptchaOk();
+
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->post('/signup', ['g-recaptcha-response' => 'dummy-token'])->assertSessionHasErrors(['email', 'password']);
         }
@@ -88,6 +90,8 @@ class BackendRegressionTest extends TestCase
 
     public function test_signup_regenerates_session_token_and_ignores_terms_override(): void
     {
+        $this->fakeRecaptchaOk();
+
         $this->get('/signup')->assertOk();
         $token = session()->token();
 

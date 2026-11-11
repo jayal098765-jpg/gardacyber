@@ -11,10 +11,8 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
+    private function fakeRecaptchaOk(): void
     {
-        parent::setUp();
-
         Http::fake([
             'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true]),
         ]);
@@ -27,6 +25,8 @@ class AuthTest extends TestCase
 
     public function test_new_account_lands_on_terms_gate(): void
     {
+        $this->fakeRecaptchaOk();
+
         $this->post('/signup', [
             'email' => 'new@example.com',
             'display_name' => 'New User',
@@ -41,6 +41,8 @@ class AuthTest extends TestCase
 
     public function test_registration_validates_unique_email_and_min_password(): void
     {
+        $this->fakeRecaptchaOk();
+
         User::factory()->create(['email' => 'taken@example.com']);
 
         $this->post('/signup', [
@@ -53,6 +55,8 @@ class AuthTest extends TestCase
 
     public function test_login_logout_cycle(): void
     {
+        $this->fakeRecaptchaOk();
+
         $user = User::factory()->create(['password' => 'password']);
 
         $this->post('/login', [
@@ -69,6 +73,8 @@ class AuthTest extends TestCase
 
     public function test_wrong_credentials_are_rejected(): void
     {
+        $this->fakeRecaptchaOk();
+
         $this->post('/login', [
             'email' => 'nobody@example.com',
             'password' => 'wrong-password',
@@ -84,6 +90,23 @@ class AuthTest extends TestCase
             'email' => 'new@example.com',
             'password' => 'hackathon',
             'password_confirmation' => 'hackathon',
+        ])->assertSessionHasErrors('recaptcha');
+
+        $this->assertGuest();
+    }
+
+    public function test_login_rejects_low_recaptcha_score(): void
+    {
+        Http::fake([
+            'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true, 'score' => 0.3]),
+        ]);
+
+        $user = User::factory()->create(['password' => 'password']);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'g-recaptcha-response' => 'low-score-token',
         ])->assertSessionHasErrors('recaptcha');
 
         $this->assertGuest();
