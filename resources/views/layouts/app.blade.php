@@ -108,7 +108,9 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
         <div class="topbar-title"><span class="topbar-context">workspace /</span> @yield('title', 'overview')</div>
-        <a class="btn btn-ghost btn-sm topbar-scan" href="{{ route('scans.new') }}">New Scan</a>
+        @if (!request()->routeIs('dashboard'))
+          <a class="btn btn-ghost btn-sm topbar-scan" href="{{ route('scans.new') }}">New Scan</a>
+        @endif
         <span class="topbar-user">{{ Auth::user()->displayName() }}</span>
       </header>
 

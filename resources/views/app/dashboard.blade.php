@@ -44,31 +44,59 @@
 
   <div class="kpi-row">
     <a class="kpi kpi-link" href="{{ route('groups.index') }}">
-      <div class="k-label">Total Assets</div>
+      <div class="k-header">
+        <span class="k-label">Total Assets</span>
+        <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
+      </div>
       <div class="k-value" data-count="{{ $totalAssets }}">{{ number_format($totalAssets) }}</div>
-      <div class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="k-footer">
+        <span class="k-sub">perimeter hosts</span>
+        <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      </div>
     </a>
     <a class="kpi kpi-link" href="{{ route('groups.index') }}">
-      <div class="k-label">Asset Groups</div>
+      <div class="k-header">
+        <span class="k-label">Asset Groups</span>
+        <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></span>
+      </div>
       <div class="k-value" data-count="{{ $groups->count() }}">{{ $groups->count() }}</div>
-      <div class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="k-footer">
+        <span class="k-sub">configured domains</span>
+        <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      </div>
     </a>
-    <a class="kpi kpi-link {{ $openVulns->isNotEmpty() ? 'sev-'.($worstVulnSev ?? 'low') : '' }}" href="{{ route('vulnerabilities.index') }}">
-      <div class="k-label">Open Vulnerabilities</div>
+    <a class="kpi kpi-link {{ $openVulns->isNotEmpty() ? 'sev-'.($worstVulnSev ?? 'low') : 'sev-clean' }}" href="{{ route('vulnerabilities.index') }}">
+      <div class="k-header">
+        <span class="k-label">Open Vulnerabilities</span>
+        <span class="k-icon k-icon-alert"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      </div>
       <div class="k-value" data-count="{{ $openVulns->count() }}">{{ $openVulns->count() }}</div>
-      <div class="k-sub">{{ $worstVulnSev ? $openVulns->where('severity',$worstVulnSev)->count().' '.$worstVulnSev : 'nothing open' }}</div>
-      <div class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="k-footer">
+        <span class="k-sub">{{ $worstVulnSev ? $openVulns->where('severity',$worstVulnSev)->count().' '.$worstVulnSev : 'nothing open' }}</span>
+        <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      </div>
     </a>
-    <a class="kpi kpi-link {{ $openIncidents->isNotEmpty() ? 'sev-'.($worstIncidentSev ?? 'low') : '' }}" href="{{ route('incidents.index') }}">
-      <div class="k-label">Open Incidents</div>
+    <a class="kpi kpi-link {{ $openIncidents->isNotEmpty() ? 'sev-'.($worstIncidentSev ?? 'low') : 'sev-clean' }}" href="{{ route('incidents.index') }}">
+      <div class="k-header">
+        <span class="k-label">Open Incidents</span>
+        <span class="k-icon k-icon-alert"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5l-8-3Z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
+      </div>
       <div class="k-value" data-count="{{ $openIncidents->count() }}">{{ $openIncidents->count() }}</div>
-      <div class="k-sub">{{ $worstIncidentSev ? $openIncidents->where('severity',$worstIncidentSev)->count().' '.$worstIncidentSev : 'nothing open' }}</div>
-      <div class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="k-footer">
+        <span class="k-sub">{{ $worstIncidentSev ? $openIncidents->where('severity',$worstIncidentSev)->count().' '.$worstIncidentSev : 'nothing open' }}</span>
+        <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      </div>
     </a>
     <a class="kpi kpi-link" href="{{ route('activity.index') }}">
-      <div class="k-label">Scans This Week</div>
+      <div class="k-header">
+        <span class="k-label">Scans This Week</span>
+        <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+      </div>
       <div class="k-value" data-count="{{ $scansThisWeek }}">{{ $scansThisWeek }}</div>
-      <div class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="k-footer">
+        <span class="k-sub">last 7 days</span>
+        <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      </div>
     </a>
   </div>
 
@@ -81,9 +109,9 @@
       <div class="sev-bars">
         @foreach (['critical','high','medium','low'] as $sev)
           <div class="sev-bar-row">
-            <span class="sev-name">{{ $sev }}</span>
+            <span class="sev-name sev-{{ $sev }}"><span class="sev-dot"></span>{{ ucfirst($sev) }}</span>
             <div class="sev-track">
-              <span class="sev-fill fill-{{ $sev }}" style="--w:{{ $openVulns->isEmpty() ? 0 : ($vulnBySev[$sev] ?? 0) / $openVulns->count() * 100 }}%"></span>
+              <span class="sev-fill fill-{{ $sev }}" style="--w: {{ $openVulns->isEmpty() ? 0 : round(($vulnBySev[$sev] ?? 0) / $openVulns->count() * 100, 1) }}%;"></span>
             </div>
             <span class="sev-n">{{ $vulnBySev[$sev] ?? 0 }}</span>
           </div>
@@ -99,9 +127,9 @@
       <div class="sev-bars">
         @foreach (['critical','high','medium','low'] as $sev)
           <div class="sev-bar-row">
-            <span class="sev-name">{{ $sev }}</span>
+            <span class="sev-name sev-{{ $sev }}"><span class="sev-dot"></span>{{ ucfirst($sev) }}</span>
             <div class="sev-track">
-              <span class="sev-fill fill-{{ $sev }}" style="--w:{{ $openIncidents->isEmpty() ? 0 : ($incidentBySev[$sev] ?? 0) / $openIncidents->count() * 100 }}%"></span>
+              <span class="sev-fill fill-{{ $sev }}" style="--w: {{ $openIncidents->isEmpty() ? 0 : round(($incidentBySev[$sev] ?? 0) / $openIncidents->count() * 100, 1) }}%;"></span>
             </div>
             <span class="sev-n">{{ $incidentBySev[$sev] ?? 0 }}</span>
           </div>
@@ -115,17 +143,24 @@
       </div>
       <div class="grade-row">
         <div class="grade-card">
-          <div class="grade-letter grade-{{ strtolower($rating['vuln']['grade']) }}">{{ $rating['vuln']['grade'] }}</div>
+          <div class="grade-badge badge-{{ strtolower($rating['vuln']['grade']) }}">
+            <span class="grade-letter grade-{{ strtolower($rating['vuln']['grade']) }}">{{ $rating['vuln']['grade'] }}</span>
+          </div>
           <div class="grade-label">Vulnerability</div>
-          <div class="grade-score">{{ $rating['vuln']['score'] }}/100</div>
+          <div class="grade-score">{{ $rating['vuln']['score'] }}<span class="grade-max">/100</span></div>
         </div>
         <div class="grade-card">
-          <div class="grade-letter grade-{{ strtolower($rating['incident']['grade']) }}">{{ $rating['incident']['grade'] }}</div>
+          <div class="grade-badge badge-{{ strtolower($rating['incident']['grade']) }}">
+            <span class="grade-letter grade-{{ strtolower($rating['incident']['grade']) }}">{{ $rating['incident']['grade'] }}</span>
+          </div>
           <div class="grade-label">Incident</div>
-          <div class="grade-score">{{ $rating['incident']['score'] }}/100</div>
+          <div class="grade-score">{{ $rating['incident']['score'] }}<span class="grade-max">/100</span></div>
         </div>
       </div>
-      <div class="assets-covered">Assets covered <b>{{ number_format($totalAssets) }}</b></div>
+      <div class="assets-covered">
+        <span>Monitored perimeter coverage</span>
+        <span class="assets-count"><b>{{ number_format($totalAssets) }}</b> assets</span>
+      </div>
 
       <div class="panel-sep"></div>
 
@@ -138,7 +173,7 @@
             <a class="rating-row" href="{{ route('groups.show', $row['group']) }}">
               <span class="grade-mini grade-{{ strtolower($row['vuln']['grade']) }}">{{ $row['vuln']['grade'] }}</span>
               <span class="rating-domain mono">{{ $row['group']->root_domain }}</span>
-              <span class="rating-assets">{{ $row['group']->assets_count }} assets</span>
+              <span class="rating-assets">{{ $row['group']->assets_count }} {{ Str::plural('asset', $row['group']->assets_count) }}</span>
             </a>
           @endforeach
         </div>
@@ -158,14 +193,14 @@
       @if ($recentVulnerabilities->isNotEmpty())
         <div class="table-wrap">
           <table class="tbl">
-            <thead><tr><th>Severity</th><th>Title</th><th>Host</th><th>Age</th></tr></thead>
+            <thead><tr><th style="width: 110px;">Severity</th><th>Title</th><th>Host</th><th style="width: 110px; text-align: right;">Age</th></tr></thead>
             <tbody>
               @foreach ($recentVulnerabilities as $finding)
                 <tr class="tbl-row-link" data-href="{{ route('findings.show', $finding) }}" tabindex="0" role="link" aria-label="Buka temuan: {{ $finding->title }}">
                   <td><span class="badge sev-{{ $finding->severity }}"><span class="dot"></span>{{ ucfirst($finding->severity) }}</span></td>
                   <td><a href="{{ route('findings.show', $finding) }}" class="finding-link">{{ $finding->title }}</a></td>
-                  <td class="mono">{{ $finding->asset?->hostname ?: $finding->group->root_domain }}</td>
-                  <td>{{ $finding->last_seen_at?->diffForHumans() }}</td>
+                  <td class="mono host-cell">{{ $finding->asset?->hostname ?: $finding->group->root_domain }}</td>
+                  <td class="age-cell">{{ $finding->last_seen_at?->diffForHumans() }}</td>
                 </tr>
               @endforeach
             </tbody>
