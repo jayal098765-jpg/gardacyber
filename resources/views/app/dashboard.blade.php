@@ -100,6 +100,59 @@
     </a>
   </div>
 
+  @php
+    $expScore = $exposureIndex['score'] ?? 0;
+    $expLevel = strtolower($exposureIndex['level'] ?? 'Low');
+    $expDetail = $exposureIndex['detail'] ?? '';
+  @endphp
+
+  <div class="dash-grid posture-row">
+    <div class="panel exposure-panel level-{{ $expLevel }}">
+      <div class="panel-head">
+        <span class="panel-title">Exposure Index</span>
+        <span class="workspace-badge">workspace-wide</span>
+      </div>
+      <div class="exposure-body">
+        <div class="exposure-gauge">
+          <div class="exposure-ring" style="--value: {{ $expScore }};">
+            <div class="exposure-core">
+              <span class="exposure-number">{{ $expScore }}</span>
+              <span class="exposure-of">/100</span>
+            </div>
+          </div>
+        </div>
+        <div class="exposure-meta">
+          <span class="exposure-level">{{ ucfirst($expLevel) }}</span>
+          <span class="exposure-detail mono">{{ $expDetail }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Posture Trend</span>
+      </div>
+      @if ($postureHistory->isEmpty())
+        <p class="muted">Belum ada riwayat posture. Jalankan scan untuk mulai melacak tren keamananmu.</p>
+      @else
+        <div class="trend-chart">
+          <svg viewBox="0 0 320 90" width="100%" height="90" role="img" aria-label="Tren skor posture 30 hari terakhir">
+            <polyline class="trend-line trend-incident" points="{{ $postureChart['incident']['points'] }}"></polyline>
+            <polyline class="trend-line trend-vuln" points="{{ $postureChart['vuln']['points'] }}"></polyline>
+          </svg>
+          <div class="trend-axis"></div>
+        </div>
+        <div class="trend-legend">
+          <span class="trend-key"><span class="key-dot key-vuln"></span>Vulnerability</span>
+          <span class="trend-key"><span class="key-dot key-incident"></span>Incident</span>
+        </div>
+        <div class="trend-range mono">
+          {{ $postureHistory->first()['date'] }} → {{ $postureHistory->last()['date'] }}
+        </div>
+      @endif
+    </div>
+  </div>
+
   <div class="dash-grid">
     <div class="panel">
       <div class="panel-head">

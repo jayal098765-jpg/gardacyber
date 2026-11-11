@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Models\Asset;
 use App\Models\Finding;
+use App\Models\PostureSnapshot;
 use App\Models\Scan;
+use App\Services\SecurityRatingService;
 use App\Services\SurfaceScanner;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -21,7 +23,7 @@ class RunSurfaceScan implements ShouldQueue
 
     public function __construct(public int $scanId) {}
 
-    public function handle(SurfaceScanner $scanner): void
+    public function handle(SurfaceScanner $scanner, SecurityRatingService $rating): void
     {
         if (! Scan::whereKey($this->scanId)->where('status', Scan::STATUS_QUEUED)->update(['status' => Scan::STATUS_RUNNING, 'started_at' => now()])) {
             return;
@@ -48,7 +50,7 @@ class RunSurfaceScan implements ShouldQueue
 
             $this->stage($scan, 3, 'Persisting observed perimeter assets, open ports, and evidence.');
 
-            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $demo): void {
+            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $demo, $rating): void {
                 $current = Scan::lockForUpdate()->find($scan->id);
 
                 if (! $current || $current->status !== Scan::STATUS_RUNNING) {
@@ -118,6 +120,18 @@ class RunSurfaceScan implements ShouldQueue
                 ]);
 
                 $scan->group->update(['last_scanned_at' => now()]);
+
+                $group = $scan->group->refresh();
+                $groupRatings = $rating->rateGroup($group);
+
+                PostureSnapshot::create([
+                    'asset_group_id' => $group->id,
+                    'assets' => $group->assets()->count(),
+                    'open_vulns' => $group->openVulnerabilities()->count(),
+                    'open_incidents' => $group->openIncidents()->count(),
+                    'vuln_score' => $groupRatings['vuln']['score'],
+                    'incident_score' => $groupRatings['incident']['score'],
+                ]);
             });
         } catch (Throwable $exception) {
             report($exception);

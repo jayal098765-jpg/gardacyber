@@ -8,6 +8,7 @@ use App\Models\AssetGroup;
 use App\Models\Finding;
 use App\Models\Scan;
 use App\Models\User;
+use App\Services\SecurityRatingService;
 use App\Services\SurfaceScanner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -102,7 +103,7 @@ class ScanFlowTest extends TestCase
         ]);
 
         $job = new RunSurfaceScan($scan->id);
-        $job->handle(app(SurfaceScanner::class));
+        $job->handle(app(SurfaceScanner::class), app(SecurityRatingService::class));
 
         $this->assertSame(Scan::STATUS_COMPLETED, $scan->fresh()->status);
         $this->assertGreaterThan(0, Asset::where('asset_group_id', $group->id)->count());

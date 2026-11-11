@@ -27,62 +27,65 @@
     </div>
   </div>
 
-  <div class="scan-console" data-scan-id="{{ $scan->id }}" data-progress-url="{{ route('scans.progress', $scan) }}" style="background: var(--bg-surface-1, #0a1120); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 14px; padding: 24px;">
-    <div class="scan-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-      <div style="display: flex; align-items: center; gap: 10px;">
+  <div class="scan-console" data-scan-id="{{ $scan->id }}" data-progress-url="{{ route('scans.progress', $scan) }}">
+    <div class="scan-header">
+      <div class="scan-status-group">
         <span class="pill {{ $initial['finished'] ? ($initial['status'] === 'completed' ? 'ok' : 'warn') : 'run' }}" id="scanStatus">
           @if (!$initial['finished'])
             <span class="spin-dot"></span>
           @endif
           <span id="scanStatusText">{{ ucfirst($initial['status']) }}</span>
         </span>
-        <span class="mono" id="scanMessage" style="font-size: 13px; color: var(--fg-muted, #94a3b8);">
-          {{ $initial['message'] }}
+        <span class="mono scan-message" id="scanMessage">{{ $initial['message'] }}</span>
+      </div>
+      <span class="scan-elapsed mono" id="scanElapsed">{{ $initial['elapsed_seconds'] }}s elapsed</span>
+    </div>
+
+    <div class="scan-progress">
+      <div class="pg-track-lg">
+        <div class="pg-fill" id="scanBar" style="width: {{ $initial['percent'] }}%;"></div>
+      </div>
+      <div class="scan-progress-meta">
+        <span class="scan-percent mono" id="scanPercent">{{ $initial['percent'] }}% Complete</span>
+        <span class="scan-eta mono" id="scanEta">
+          @if ($initial['finished'])
+            Selesai
+          @elseif ($initial['percent'] > 0)
+            Estimasi sisa: ~{{ ceil(($initial['elapsed_seconds'] * (100 - $initial['percent'])) / max($initial['percent'], 1)) }}s
+          @else
+            Menyelesaikan…
+          @endif
         </span>
       </div>
-      <span class="scan-elapsed mono" id="scanElapsed" style="font-size: 12px; color: var(--fg-subtle, #64748b);">
-        {{ $initial['elapsed_seconds'] }}s elapsed
-      </span>
     </div>
 
-    <div class="pg-track-lg" style="height: 8px; background: var(--bg-surface-3, #1e293b); border-radius: 999px; overflow: hidden;">
-      <div class="pg-fill" id="scanBar" style="height: 100%; width: {{ $initial['percent'] }}%; background: linear-gradient(90deg, #0284c7, #00d2ff); transition: width 0.4s ease;"></div>
-    </div>
-    <div class="scan-percent mono" id="scanPercent" style="font-size: 13px; margin-top: 8px; color: var(--fg-muted, #94a3b8);">
-      {{ $initial['percent'] }}% Complete
-    </div>
-
-    <div class="pg-stages" id="scanStages" style="margin-top: 24px; display: grid; gap: 10px;">
+    <div class="pg-stages" id="scanStages">
       @foreach ($initial['stages'] as $stage)
-        <div class="pg-stage {{ $stage['state'] }}" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-radius: 8px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span class="pg-dot" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: {{ $stage['state'] === 'complete' ? '#10b981' : ($stage['state'] === 'running' ? '#00d2ff' : '#475569') }};"></span>
-            <span class="pg-stage-name" style="font-weight: 500; font-size: 13.5px;">{{ $stage['name'] }}</span>
-          </div>
-          <span class="pg-stage-state mono" style="font-size: 11px; text-transform: uppercase; color: {{ $stage['state'] === 'complete' ? '#10b981' : ($stage['state'] === 'running' ? '#00d2ff' : '#64748b') }};">
-            {{ $stage['state'] }}
-          </span>
+        <div class="pg-stage {{ $stage['state'] }}">
+          <span class="pg-dot"></span>
+          <span class="pg-stage-name">{{ $stage['name'] }}</span>
+          <span class="pg-stage-state mono">{{ $stage['state'] }}</span>
         </div>
       @endforeach
     </div>
 
-    <div class="scan-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 24px;">
-      <div class="scan-kpi" style="padding: 12px; background: var(--bg-surface-2, #0d1527); border-radius: 8px; text-align: center;">
-        <div class="k-value mono" id="scanAssets" style="font-size: 20px; font-weight: 700;">{{ $initial['assets'] }}</div>
-        <div class="k-label" style="font-size: 11px; text-transform: uppercase; color: var(--fg-subtle, #64748b);">Assets Profiled</div>
+    <div class="scan-summary">
+      <div class="scan-kpi">
+        <div class="k-value mono" id="scanAssets">{{ $initial['assets'] }}</div>
+        <div class="k-label">Assets Profiled</div>
       </div>
-      <div class="scan-kpi" style="padding: 12px; background: var(--bg-surface-2, #0d1527); border-radius: 8px; text-align: center;">
-        <div class="k-value mono" id="scanVulns" style="font-size: 20px; font-weight: 700; color: #f59e0b;">{{ $initial['vulnerabilities'] }}</div>
-        <div class="k-label" style="font-size: 11px; text-transform: uppercase; color: var(--fg-subtle, #64748b);">Vulnerabilities</div>
+      <div class="scan-kpi">
+        <div class="k-value mono vuln-count" id="scanVulns">{{ $initial['vulnerabilities'] }}</div>
+        <div class="k-label">Vulnerabilities</div>
       </div>
-      <div class="scan-kpi" style="padding: 12px; background: var(--bg-surface-2, #0d1527); border-radius: 8px; text-align: center;">
-        <div class="k-value mono" id="scanIncidents" style="font-size: 20px; font-weight: 700; color: #ef4444;">{{ $initial['incidents'] }}</div>
-        <div class="k-label" style="font-size: 11px; text-transform: uppercase; color: var(--fg-subtle, #64748b);">Incidents</div>
+      <div class="scan-kpi">
+        <div class="k-value mono incident-count" id="scanIncidents">{{ $initial['incidents'] }}</div>
+        <div class="k-label">Incidents</div>
       </div>
     </div>
 
-    <div class="scan-done {{ $initial['finished'] ? '' : 'hidden' }}" id="scanDone" style="margin-top: 24px; padding: 18px; border-radius: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25);">
-      <div class="done-callout" id="doneCallout" style="font-size: 14px; font-weight: 600; color: #10b981; margin-bottom: 12px;">
+    <div class="scan-done {{ $initial['finished'] ? '' : 'hidden' }}" id="scanDone">
+      <div class="done-callout" id="doneCallout">
         {{ $initial['message'] ?: 'Assessment finalized. New evidence has been attributed to the asset record.' }}
       </div>
       <div class="page-actions">
@@ -103,6 +106,7 @@
   const url = box.dataset.progressUrl;
   const bar = document.getElementById('scanBar');
   const pct = document.getElementById('scanPercent');
+  const eta = document.getElementById('scanEta');
   const stages = document.getElementById('scanStages');
   const status = document.getElementById('scanStatus');
   const statusText = document.getElementById('scanStatusText');
@@ -115,18 +119,15 @@
   const vulnsEl = document.getElementById('scanVulns');
   const incidentsEl = document.getElementById('scanIncidents');
 
-  let poll = null;
+  const STATUS_CLASS = {
+    completed: 'ok',
+    running: 'run',
+    queued: 'run',
+    stopped: 'warn',
+    failed: 'warn'
+  };
 
-  function renderStage(name, state) {
-    const color = state === 'complete' ? '#10b981' : (state === 'running' ? '#00d2ff' : '#475569');
-    return '<div class="pg-stage ' + state + '" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-radius: 8px;">' +
-      '<div style="display: flex; align-items: center; gap: 10px;">' +
-      '<span class="pg-dot" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: ' + color + ';"></span>' +
-      '<span class="pg-stage-name" style="font-weight: 500; font-size: 13.5px;">' + escapeHtml(name) + '</span>' +
-      '</div>' +
-      '<span class="pg-stage-state mono" style="font-size: 11px; text-transform: uppercase; color: ' + color + ';">' + escapeHtml(state) + '</span>' +
-      '</div>';
-  }
+  let poll = null;
 
   function escapeHtml(str) {
     const div = document.createElement('div');
@@ -134,10 +135,35 @@
     return div.innerHTML;
   }
 
+  function renderStage(name, state) {
+    return '<div class="pg-stage ' + escapeHtml(state) + '">' +
+      '<span class="pg-dot"></span>' +
+      '<span class="pg-stage-name">' + escapeHtml(name) + '</span>' +
+      '<span class="pg-stage-state mono">' + escapeHtml(state) + '</span>' +
+      '</div>';
+  }
+
+  function formatEta(data) {
+    if (data.finished) return '';
+    const p = Number(data.percent) || 0;
+    const e = Number(data.elapsed_seconds) || 0;
+    if (p <= 0) return 'Menyelesaikan…';
+    const remaining = Math.max(1, Math.round(e * (100 - p) / p));
+    return 'Estimasi sisa: ~' + remaining + 's';
+  }
+
+  function setStatus(value) {
+    statusText.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+    status.className = 'pill ' + (STATUS_CLASS[value] || 'run');
+  }
+
   function render(data) {
-    bar.style.width = data.percent + '%';
-    pct.textContent = data.percent + '% Complete';
+    const p = Math.min(100, Math.max(0, Number(data.percent) || 0));
+    bar.style.width = p + '%';
+    pct.textContent = p + '% Complete';
+    eta.textContent = formatEta(data);
     elapsed.textContent = data.elapsed_seconds + 's elapsed';
+
     if (data.message) {
       messageEl.textContent = data.message;
     }
@@ -146,17 +172,17 @@
     incidentsEl.textContent = data.incidents;
 
     if (data.stages && data.stages.length) {
-      stages.innerHTML = data.stages.map(s => renderStage(s.name, s.state)).join('');
+      stages.innerHTML = data.stages.map(function (s) { return renderStage(s.name, s.state); }).join('');
     }
 
     if (data.finished) {
-      if (poll) clearInterval(poll);
-      statusText.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-      status.className = 'pill ' + (data.status === 'completed' ? 'ok' : 'warn');
+      if (poll) { clearInterval(poll); poll = null; }
+      setStatus(data.status);
       const dot = status.querySelector('.spin-dot');
       if (dot) dot.remove();
 
       done.classList.remove('hidden');
+      done.classList.toggle('scan-done-warn', data.status !== 'completed');
       if (data.message) {
         callout.textContent = data.message;
       }
