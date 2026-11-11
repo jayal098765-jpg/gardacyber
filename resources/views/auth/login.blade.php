@@ -2,7 +2,7 @@
 
 @section('title', 'Sign in · GardaCyber')
 
-@@section('content')
+@section('content')
 <section class="auth-section">
   <div class="container">
     <div class="auth-card">
