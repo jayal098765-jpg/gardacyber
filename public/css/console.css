@@ -39,7 +39,6 @@
 .nav-link:hover { background: var(--bg-surface-2); color: var(--fg-default); }
 .nav-link.active { background: var(--accent-soft); color: var(--accent); }
 .nav-link-button { width: 100%; text-align: left; }
-.sidebar-foot { margin-top: auto; padding: 16px 20px; font-size: 11.5px; color: var(--fg-subtle); border-top: 1px solid var(--border-subtle); }
 .sidebar-scrim { display: none; }
 
 .console-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -371,7 +370,6 @@ select.input {
 .nav-link:hover { color: var(--fg-default); background: var(--bg-surface-2); }
 .nav-link.active { color: var(--accent); background: var(--accent-soft); }
 .nav-link svg { width: 15px; height: 15px; }
-.sidebar-foot { color: var(--fg-subtle); border-color: var(--border-subtle); font-size: 10px; line-height: 1.8; font-family: var(--font-mono); }
 .sidebar-close { color: var(--fg-muted); min-height: 40px; min-width: 32px; }
 .console-topbar { background: var(--material-chrome); height: 72px; padding: 0 34px; }
 .topbar-title { font-size: 12px; }

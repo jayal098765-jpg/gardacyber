@@ -98,8 +98,6 @@
           </button>
         </form>
       </nav>
-
-      <div class="sidebar-foot">$ ./gardacyber --mission=defense<br>keep evidence in view</div>
     </aside>
 
     <div class="sidebar-scrim" id="sidebarScrim"></div>
