@@ -152,16 +152,16 @@
 
         @if ($guide['config_snippet'])
           <div style="margin-bottom: 18px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <h4 style="font-size: 13.5px; font-weight: 600; margin: 0; color: var(--fg-default, #f1f5f9);">Hardening Configuration Snippet</h4>
-              <button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy="{{ $guide['config_snippet'] }}" style="padding: 4px 10px; min-height: 28px; font-size: 11.5px;">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                <span class="copy-text">Copy</span>
-              </button>
-            </div>
-            <div style="background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; position: relative;">
-              <pre class="mono" style="margin: 0; font-size: 12px; line-height: 1.45; color: #a5f3fc; white-space: pre-wrap;">{{ $guide['config_snippet'] }}</pre>
-            </div>
+            <details style="background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; position: relative;">
+              <summary style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; list-style: none;">
+                <span style="font-size: 13px; color: var(--fg-muted, #94a3b8);">Show snippet</span>
+                <button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy="{{ $guide['config_snippet'] }}" style="padding: 4px 10px; min-height: 28px; font-size: 11.5px;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <span class="copy-text">Copy</span>
+                </button>
+              </summary>
+              <pre class="mono" style="margin: 12px 0 0; font-size: 12px; line-height: 1.45; color: #a5f3fc; white-space: pre-wrap;">{{ $guide['config_snippet'] }}</pre>
+            </details>
           </div>
         @endif
 

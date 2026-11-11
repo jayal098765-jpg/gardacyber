@@ -20,12 +20,20 @@
 @endphp
 
 @section('content')
-  <div class="page-head">
-    <h1>Attack Surface Overview</h1>
-    <p>Assets, open findings, and recent checks across your workspace.</p>
+  <div class="page-head row">
+    <div>
+      <h1>Attack Surface Overview</h1>
+      <p>Your perimeter at a glance.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-ghost btn-sm" href="{{ route('reports.index') }}">Reports</a>
+      <a class="btn btn-primary btn-sm" href="{{ route('scans.new') }}">New Scan</a>
+    </div>
   </div>
 
-  <div class="banner {{ $bannerClass }}">{{ $bannerText }}</div>
+  <a class="banner {{ $bannerClass }}" href="{{ route('issues.index') }}">
+    {{ $bannerText }} — review now
+  </a>
 
   <div class="kpi-row">
     <a class="kpi kpi-link" href="{{ route('groups.index') }}">
@@ -123,7 +131,8 @@
           @endforeach
         </div>
       @else
-        <p class="muted">No asset groups yet. <a href="{{ route('scans.new') }}">Scan a domain</a> to get started.</p>
+        <p class="muted">No asset groups yet.</p>
+        <a class="btn btn-primary btn-sm" href="{{ route('scans.new') }}">Scan a domain</a>
       @endif
     </div>
   </div>
@@ -174,7 +183,7 @@
           @endforeach
         </div>
       @else
-        <p class="muted">No open incident findings in this workspace. This does not confirm that every asset is secure.</p>
+        <p class="muted">No open incident findings.</p>
       @endif
     </div>
   </div>
