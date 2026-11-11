@@ -22,7 +22,6 @@
         <a href="{{ route('landing') }}#features" data-i18n="nav_workspace">Workspace</a>
         <a href="{{ route('landing') }}#incident-check" data-i18n="nav_incidents">Incidents</a>
         <a href="{{ route('landing') }}#how" data-i18n="nav_workflow">Workflow</a>
-        <a href="{{ route('landing') }}#pricing" data-i18n="nav_plans">Plans</a>
       </nav>
       <div class="nav-actions">
         <div class="lang-toggle" role="group" aria-label="Language">
@@ -43,7 +42,6 @@
       <a href="{{ route('landing') }}#features" data-i18n="nav_workspace">Workspace</a>
       <a href="{{ route('landing') }}#incident-check" data-i18n="nav_incidents">Incidents</a>
       <a href="{{ route('landing') }}#how" data-i18n="nav_workflow">Workflow</a>
-      <a href="{{ route('landing') }}#pricing" data-i18n="nav_plans">Plans</a>
       <a href="{{ route('login') }}" data-i18n="nav_signin">Sign in</a>
       <a href="{{ route('signup') }}" class="btn btn-primary" data-i18n="nav_getstarted">Get started</a>
     </nav>
