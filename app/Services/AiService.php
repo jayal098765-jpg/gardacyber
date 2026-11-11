@@ -207,6 +207,121 @@ class AiService
     }
 
     /**
+     * Chat with the AI about the user's workspace. Answers in Indonesian by default.
+     *
+     * @param  array<int, array{role: string, content: string}>  $history
+     * @return array{reply: string, source: string}
+     */
+    public function chat(User $user, string $message, array $workspaceContext, array $history = []): array
+    {
+        $config = $this->resolveConfig($user);
+
+        $fallbackReply = 'Maaf, asisten AI belum terkonfigurasi atau sedang tidak tersedia. Saya tetap bisa membantu lewat data di halaman ini — coba tanya lebih spesifik, misalnya "temuan kritis apa saja yang terbuka?" atau "grup mana yang paling berisiko?".';
+
+        if (! $config['provider'] || ! $config['api_key']) {
+            return ['reply' => $fallbackReply, 'source' => 'unconfigured'];
+        }
+
+        $systemPrompt = <<<'PROMPT'
+Kamu adalah "Garda Copilot", asisten keamanan siber di GardaCyber — platform yang menampilkan hasil scan attack surface (grup aset, temuan kerentanan, insiden, dan rating A–F).
+
+Aturan menjawab:
+1. Selalu jawab dalam Bahasa Indonesia, kecuali pengguna meminta bahasa lain.
+2. Gunakan data konteks workspace yang tersedia di bawah ini sebagai sumber utama. Jangan mengarang fakta yang tidak ada di konteks.
+3. Jika pertanyaan di luar data yang tersedia, jawab singkat dan jujur bahwa kamu tidak punya datanya, lalu sarankan apa yang bisa dilakukan (mis. scan baru).
+4. Jawab padat, langsung ke inti, tidak bertele-tele. Pakai bullet point bila membantu.
+5. Jika pengguna bertanya tentang cara memperbaiki temuan, berikan langkah praktis dan aman (jangan perintah destruktif tanpa verifikasi).
+PROMPT;
+
+        $contextText = $this->workspaceContextToText($workspaceContext);
+        $historyText = $this->historyToText($history);
+
+        $userPrompt = "Pertanyaan pengguna:\n{$message}\n\n--- KONTEKS WORKSPACE ---\n{$contextText}";
+        if ($historyText !== '') {
+            $userPrompt .= "\n\n--- RIWAYAT PERCAKAPAN ---\n{$historyText}";
+        }
+
+        try {
+            $json = $this->callProviderWithRotation(
+                $config,
+                $systemPrompt,
+                $userPrompt,
+            );
+
+            if (is_array($json) && isset($json['reply'])) {
+                return [
+                    'reply' => (string) $json['reply'],
+                    'source' => 'ai',
+                ];
+            }
+        } catch (Throwable) {
+            // fall through to fallback
+        }
+
+        return ['reply' => $fallbackReply, 'source' => 'fallback'];
+    }
+
+    /**
+     * @param  array<int, array{role: string, content: string}>  $history
+     */
+    protected function historyToText(array $history): string
+    {
+        $lines = [];
+        foreach (array_slice($history, -8) as $entry) {
+            $role = ($entry['role'] ?? 'user') === 'assistant' ? 'Asisten' : 'Pengguna';
+            $lines[] = "{$role}: ".((string) ($entry['content'] ?? ''));
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $workspaceContext
+     */
+    protected function workspaceContextToText(array $workspaceContext): string
+    {
+        $lines = [];
+
+        $groups = $workspaceContext['groups'] ?? [];
+        if (is_array($groups) && count($groups) > 0) {
+            $lines[] = 'GRUP ASET:';
+            foreach ($groups as $group) {
+                $lines[] = sprintf(
+                    '- %s (%d aset, %d vuln terbuka, %d insiden terbuka, rating vuln %s, rating insiden %s, scan terakhir: %s)',
+                    $group['root_domain'] ?? '?',
+                    $group['assets_count'] ?? 0,
+                    $group['open_vulns'] ?? 0,
+                    $group['open_incidents'] ?? 0,
+                    $group['vuln_grade'] ?? '?',
+                    $group['incident_grade'] ?? '?',
+                    $group['last_scanned_at'] ?? 'belum pernah',
+                );
+            }
+        } else {
+            $lines[] = 'GRUP ASET: (belum ada grup)';
+        }
+
+        $findings = $workspaceContext['findings'] ?? [];
+        if (is_array($findings) && count($findings) > 0) {
+            $lines[] = 'TEMUAN TERBUKA (contoh):';
+            foreach ($findings as $finding) {
+                $lines[] = sprintf(
+                    '- [%s] %s | kategori: %s | host: %s | status: %s',
+                    $finding['severity'] ?? '?',
+                    $finding['title'] ?? '?',
+                    $finding['category'] ?? '?',
+                    $finding['hostname'] ?? '?',
+                    $finding['status'] ?? 'open',
+                );
+            }
+        } else {
+            $lines[] = 'TEMUAN TERBUKA: (tidak ada)';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * @param  array<string, mixed>  $overrides
      * @return array{
      *     success: bool,

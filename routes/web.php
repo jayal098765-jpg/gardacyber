@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -78,4 +79,8 @@ Route::middleware(['auth', EnsureTermsAccepted::class])->group(function () {
     Route::patch('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.store');
     Route::post('/ai-settings/test', [AiSettingsController::class, 'test'])->name('ai-settings.test');
+
+    Route::get('/ai-chat', [AiChatController::class, 'index'])->name('ai-chat');
+    Route::post('/ai-chat', [AiChatController::class, 'store'])->name('ai-chat.store');
+    Route::post('/ai-chat/clear', [AiChatController::class, 'clear'])->name('ai-chat.clear');
 });

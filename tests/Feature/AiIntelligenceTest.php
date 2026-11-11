@@ -329,6 +329,50 @@ class AiIntelligenceTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_ai_chat_requires_authentication(): void
+    {
+        $this->postJson(route('ai-chat.store'), ['message' => 'Halo'])
+            ->assertUnauthorized();
+    }
+
+    public function test_ai_chat_answers_in_indonesian_from_workspace_context(): void
+    {
+        Http::fake([
+            'https://openrouter.ai/api/v1/models' => Http::response([
+                'data' => [['id' => 'openai/gpt-4o-mini']],
+            ], 200),
+            'https://openrouter.ai/api/v1/chat/completions' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => '{"reply": "Grup paling berisiko adalah contoh.com dengan 3 temuan kritis terbuka."}']],
+                ],
+            ], 200),
+        ]);
+
+        $user = User::factory()->create([
+            'terms_accepted_at' => now(),
+            'ai_provider' => 'openrouter',
+            'ai_base_url' => 'https://openrouter.ai/api/v1',
+            'ai_api_key' => 'sk-test',
+            'ai_model' => 'openai/gpt-4o-mini',
+        ]);
+        AssetGroup::factory()->for($user)->create(['root_domain' => 'contoh.com']);
+
+        $this->actingAs($user)
+            ->postJson(route('ai-chat.store'), ['message' => 'Grup mana yang paling berisiko?'])
+            ->assertOk()
+            ->assertJsonPath('reply', 'Grup paling berisiko adalah contoh.com dengan 3 temuan kritis terbuka.')
+            ->assertJsonPath('source', 'ai');
+    }
+
+    public function test_ai_chat_validates_message(): void
+    {
+        $user = User::factory()->create(['terms_accepted_at' => now()]);
+
+        $this->actingAs($user)
+            ->postJson(route('ai-chat.store'), ['message' => ''])
+            ->assertUnprocessable();
+    }
+
     public function test_ai_settings_test_connection_endpoint_fails_when_remote_provider_rejects(): void
     {
         $user = $this->signedInUser();
