@@ -95,10 +95,10 @@ class AuthTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_login_rejects_low_recaptcha_score(): void
+    public function test_login_rejects_invalid_recaptcha_token(): void
     {
         Http::fake([
-            'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true, 'score' => 0.3]),
+            'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => false]),
         ]);
 
         $user = User::factory()->create(['password' => 'password']);
@@ -106,7 +106,7 @@ class AuthTest extends TestCase
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-            'g-recaptcha-response' => 'low-score-token',
+            'g-recaptcha-response' => 'invalid-token',
         ])->assertSessionHasErrors('recaptcha');
 
         $this->assertGuest();

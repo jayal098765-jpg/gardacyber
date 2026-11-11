@@ -11,13 +11,8 @@ class RecaptchaService
         return (bool) config('services.recaptcha.site_key') && (bool) config('services.recaptcha.secret_key');
     }
 
-    public function minimumScore(): float
-    {
-        return (float) config('services.recaptcha.min_score', 0.5);
-    }
-
     /**
-     * Verify a reCAPTCHA v3 response token.
+     * Verify a reCAPTCHA v2 response token.
      * Returns true when disabled (no keys configured) or when the token is valid.
      */
     public function verify(?string $token): bool
@@ -38,21 +33,6 @@ class RecaptchaService
                 'response' => $token,
             ]);
 
-        if (! $response->successful()) {
-            return false;
-        }
-
-        $data = $response->json();
-
-        if (! ($data['success'] ?? false)) {
-            return false;
-        }
-
-        // reCAPTCHA v3 returns a score between 0 and 1; enforce the minimum when present.
-        if (isset($data['score']) && (float) $data['score'] < $this->minimumScore()) {
-            return false;
-        }
-
-        return true;
+        return $response->successful() && (bool) $response->json('success');
     }
 }
