@@ -242,15 +242,23 @@ PROMPT;
         }
 
         try {
-            $json = $this->callProviderWithRotation(
+            $raw = $this->callProviderWithRotationRaw(
                 $config,
                 $systemPrompt,
                 $userPrompt,
             );
 
-            if (is_array($json) && isset($json['reply'])) {
+            if ($raw !== null) {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded) && isset($decoded['reply'])) {
+                    return [
+                        'reply' => (string) $decoded['reply'],
+                        'source' => 'ai',
+                    ];
+                }
+
                 return [
-                    'reply' => (string) $json['reply'],
+                    'reply' => trim($raw),
                     'source' => 'ai',
                 ];
             }
@@ -259,6 +267,119 @@ PROMPT;
         }
 
         return ['reply' => $fallbackReply, 'source' => 'fallback'];
+    }
+
+    /**
+     * Like callProvider() but returns the raw assistant text, rotating through
+     * models until one returns a non-empty message. Returns null when no model
+     * produced a usable response.
+     *
+     * @param  array{provider: ?string, api_key: ?string, base_url: string, model: string}  $config
+     */
+    protected function callProviderWithRotationRaw(array $config, string $systemPrompt, string $userPrompt): ?string
+    {
+        $models = $this->openRouterModels();
+        $configured = trim((string) $config['model']);
+
+        if (empty($models)) {
+            return $this->callProviderRaw($config, $systemPrompt, $userPrompt);
+        }
+
+        $count = count($models);
+        $offset = (int) Cache::increment('ai_model_rotation_offset');
+        if ($offset <= 0) {
+            $offset = random_int(0, $count - 1);
+        }
+        $offset %= $count;
+        $rotated = array_merge(
+            array_slice($models, $offset),
+            array_slice($models, 0, $offset)
+        );
+
+        if ($configured && $configured !== '*') {
+            $rotated = array_values(array_unique(array_merge([$configured], $rotated)));
+        }
+
+        $attempts = min(self::MAX_ROTATION_ATTEMPTS, count($rotated));
+
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            try {
+                $raw = $this->callProviderRaw(
+                    array_merge($config, ['model' => $rotated[$attempt]]),
+                    $systemPrompt,
+                    $userPrompt,
+                );
+
+                if ($raw !== null && trim($raw) !== '') {
+                    return $raw;
+                }
+            } catch (Throwable) {
+                // Try the next model.
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Perform a single provider call and return the raw assistant text, or null
+     * when the response has no text content.
+     *
+     * @param  array{provider: ?string, api_key: ?string, base_url: string, model: string}  $config
+     */
+    protected function callProviderRaw(array $config, string $systemPrompt, string $userPrompt): ?string
+    {
+        if ($config['provider'] === 'anthropic') {
+            $url = str_ends_with($config['base_url'], '/messages')
+                ? $config['base_url']
+                : $config['base_url'].'/v1/messages';
+
+            $response = Http::timeout(15)->connectTimeout(5)
+                ->withHeaders([
+                    'x-api-key' => $config['api_key'],
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json',
+                ])
+                ->post($url, [
+                    'model' => $config['model'],
+                    'max_tokens' => 1024,
+                    'system' => $systemPrompt,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $userPrompt],
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException('Anthropic API error: '.$response->body());
+            }
+
+            $rawContent = $response->json('content.0.text') ?? '';
+
+            return $rawContent !== '' ? $rawContent : null;
+        }
+
+        // OpenAI, 9router, and generic OpenAI-compatible APIs
+        $url = str_ends_with($config['base_url'], '/chat/completions')
+            ? $config['base_url']
+            : $config['base_url'].'/chat/completions';
+
+        $response = Http::timeout(15)->connectTimeout(5)
+            ->withToken($config['api_key'])
+            ->post($url, [
+                'model' => $config['model'],
+                'messages' => [
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user', 'content' => $userPrompt],
+                ],
+            ]);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException("{$config['provider']} API error: ".$response->body());
+        }
+
+        $rawContent = $response->json('choices.0.message.content') ?? '';
+
+        return $rawContent !== '' ? $rawContent : null;
     }
 
     /**
