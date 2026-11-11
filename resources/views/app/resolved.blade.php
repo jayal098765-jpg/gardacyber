@@ -1,0 +1,55 @@
+@extends('layouts.app')
+
+@section('title', 'Resolved')
+
+@section('content')
+  <div class="page-head row">
+    <div>
+      <h1>Resolved &amp; False Positives</h1>
+      <p>Closed findings stay closed until reality changes.</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <a class="tab {{ $tab === 'all' ? 'active' : '' }}" href="{{ route('resolved.index', ['tab' => 'all']) }}">All</a>
+    <a class="tab {{ $tab === 'resolved' ? 'active' : '' }}" href="{{ route('resolved.index', ['tab' => 'resolved']) }}">Resolved</a>
+    <a class="tab {{ $tab === 'false-positive' ? 'active' : '' }}" href="{{ route('resolved.index', ['tab' => 'false-positive']) }}">False positive</a>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead><tr><th>Severity</th><th>Title</th><th>Host</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        @forelse ($findings as $finding)
+          <tr>
+            <td><span class="badge sev-{{ $finding->severity }}"><span class="dot"></span>{{ ucfirst($finding->severity) }}</span></td>
+            <td>{{ $finding->title }}</td>
+            <td class="mono">{{ $finding->asset?->hostname ?: $finding->group->root_domain }}</td>
+            <td>
+              <span class="pill {{ $finding->status === 'resolved' ? 'ok' : 'warn' }}">
+                {{ $finding->status === 'resolved' ? 'Resolved' : 'False positive' }}
+              </span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <form method="POST" action="{{ route('findings.restore', $finding) }}">
+                  @csrf
+                  <button class="btn btn-ghost btn-sm" type="submit">Restore to open</button>
+                </form>
+                <form method="POST" action="{{ route('findings.destroy', $finding) }}" onsubmit="return confirm('Delete permanently?')">
+                  @csrf
+                  @method('DELETE')
+                  <button class="btn btn-ghost btn-sm danger" type="submit">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        @empty
+          <tr><td colspan="5" class="muted">Nothing here yet.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">{{ $findings->links() }}</div>
+@endsection
