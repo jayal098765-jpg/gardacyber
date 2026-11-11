@@ -4,9 +4,11 @@ FROM php:8.4-cli
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     unzip \
+    pkg-config \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libsqlite3-dev \
     libcurl4-openssl-dev \
     && docker-php-ext-install mbstring pdo pdo_sqlite zip curl fileinfo \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
