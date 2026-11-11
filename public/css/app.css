@@ -66,6 +66,8 @@ button { color: inherit; background: none; border: 0; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 :focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 4px; }
 [hidden] { display: none !important; }
+[data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease-out-soft), transform .7s var(--ease-out-soft); }
+[data-reveal].in-view { opacity: 1; transform: none; }
 h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.18; font-weight: 600; letter-spacing: -.035em; }
 h2 { font-size: clamp(30px, 4vw, 44px); margin: 0; }
 h3 { font-size: 20px; margin: 0 0 10px; }
@@ -154,6 +156,11 @@ p { max-width: 76ch; }
 .terminal-body .dim { color: var(--fg-disabled); }
 .cursor-blink { display: inline-block; width: 8px; height: 15px; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+@keyframes termLineIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sweep { 0% { transform: translateX(-40%); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(140%); opacity: 0; } }
+@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 255, 166, .45); } 60% { box-shadow: 0 0 0 8px rgba(37, 255, 166, 0); } }
+.hero-sweep { position: absolute; top: 0; bottom: 0; width: 22%; pointer-events: none; background: linear-gradient(100deg, transparent, rgba(37, 255, 166, .06), rgba(88, 166, 255, .08), transparent); animation: sweep 6s var(--ease-out-soft) infinite; }
+.live-badge { animation: pulseGlow 2.4s ease-in-out infinite; }
 
 /* ---------- Marquee / partner strip ---------- */
 .partners { margin-top: 70px; border-top: 1px solid var(--border-subtle); padding: 22px 0; overflow: hidden; }

@@ -67,6 +67,7 @@
   </footer>
   <script src="{{ asset('js/app.js') }}" defer></script>
   <script src="{{ asset('js/i18n.js') }}" defer></script>
+  <script src="{{ asset('js/landing.js') }}" defer></script>
   <script src="{{ asset('js/console.js') }}" defer></script>
   @stack('scripts')
 </body>
