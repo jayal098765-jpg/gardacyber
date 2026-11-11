@@ -223,7 +223,7 @@ class AiService
         }
 
         $systemPrompt = <<<'PROMPT'
-Kamu adalah "Garda Copilot", asisten keamanan siber di GardaCyber — platform yang menampilkan hasil scan attack surface (grup aset, temuan kerentanan, insiden, dan rating A–F).
+Kamu adalah "Garda AI", asisten keamanan siber di GardaCyber — platform yang menampilkan hasil scan attack surface (grup aset, temuan kerentanan, insiden, dan rating A–F).
 
 Aturan menjawab:
 1. Selalu jawab dalam Bahasa Indonesia, kecuali pengguna meminta bahasa lain.

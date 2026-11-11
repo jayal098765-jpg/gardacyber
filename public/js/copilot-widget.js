@@ -1,5 +1,5 @@
 /* ============================================================
-   GARDACYBER — Garda Copilot Floating Widget
+   GARDACYBER — Garda AI Floating Widget
    Floating chat bubble (bottom-right) for the console layout.
    ============================================================ */
 (function () {
@@ -62,7 +62,7 @@
     addMessage('user', message);
     inputEl.value = '';
     sendBtn.disabled = true;
-    setStatus('Garda Copilot sedang mengetik…');
+    setStatus('Garda AI sedang mengetik…');
 
     try {
       var res = await fetch(storeUrl, {

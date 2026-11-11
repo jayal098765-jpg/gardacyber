@@ -1,16 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Garda Copilot')
+@section('title', 'Garda AI')
 
 @section('content')
   <div class="page-head row">
     <div>
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <span class="badge ai-badge"><span class="signal-dot pulse"></span>Garda Copilot</span>
+        <span class="badge ai-badge"><span class="signal-dot pulse"></span>Garda AI</span>
         <span class="pill ok">Bahasa Indonesia · konteks workspace</span>
       </div>
       <h1>Tanya apa saja tentang keamanan projectmu</h1>
-      <p>Copilot membaca data grup aset & temuanmu untuk menjawab pertanyaan secara kontekstual.</p>
+      <p>Garda AI membaca data grup aset & temuanmu untuk menjawab pertanyaan secara kontekstual.</p>
     </div>
     <div class="page-actions">
       <button type="button" class="btn btn-ghost btn-sm" id="clearChatBtn" data-url="{{ route('ai-chat.clear') }}">Bersihkan percakapan</button>
@@ -22,7 +22,7 @@
       <div class="copilot-msg assistant">
         <div class="copilot-avatar">G</div>
         <div class="copilot-bubble">
-          <p style="margin: 0 0 6px;"><strong>Halo, saya Garda Copilot! 👋</strong></p>
+          <p style="margin: 0 0 6px;"><strong>Halo, saya Garda AI! 👋</strong></p>
           <p style="margin: 0;">Saya bisa dibantu membaca data workspace kamu — coba tanya, misalnya:</p>
           <ul style="margin: 8px 0 0; padding-left: 18px;">
             <li>"Grup mana yang paling berisiko?"</li>
@@ -34,7 +34,7 @@
     </div>
 
     <div class="copilot-input-row">
-      <textarea id="copilotInput" class="input" rows="2" maxlength="1000" placeholder="Ketik pertanyaanmu dalam Bahasa Indonesia..." aria-label="Pesan untuk Garda Copilot"></textarea>
+      <textarea id="copilotInput" class="input" rows="2" maxlength="1000" placeholder="Ketik pertanyaanmu dalam Bahasa Indonesia..." aria-label="Pesan untuk Garda AI"></textarea>
       <button type="button" class="btn btn-primary" id="copilotSendBtn">
         <span class="copilot-send-label">Kirim</span>
       </button>
@@ -79,7 +79,7 @@
     addMessage('user', message);
     inputEl.value = '';
     sendBtn.disabled = true;
-    setStatus('Garda Copilot sedang mengetik…');
+    setStatus('Garda AI sedang mengetik…');
 
     try {
       var res = await fetch('{{ route('ai-chat.store') }}', {
