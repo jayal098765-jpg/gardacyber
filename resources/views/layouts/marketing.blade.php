@@ -59,7 +59,7 @@
     <div class="container footer-grid">
       <div class="footer-brand"><a class="brand" href="{{ route('landing') }}"><span class="garda-mark" aria-hidden="true">G</span><span class="brand-name">GardaCyber.</span></a><p data-i18n="foot_brand">Attack surface analysis engineered for defenders who think like attackers.</p></div>
       <div class="footer-col"><h4 data-i18n="foot_explore">Explore</h4><a href="{{ route('landing') }}#coverage" data-i18n="foot_perimeter">Perimeter coverage</a><a href="{{ route('landing') }}#incident-check" data-i18n="foot_incidents">Incident signals</a><a href="{{ route('landing') }}#how" data-i18n="foot_workflow">Workflow</a></div>
-      <div class="footer-col"><h4 data-i18n="foot_ws">Workspace</h4><a href="{{ route('login') }}" data-i18n="foot_signin">Sign in</a><a href="{{ route('signup') }}" data-i18n="foot_create">Create account</a><p class="note" data-i18n="foot_note">Hackathon build — not a substitute for a professional security audit.</p></div>
+      <div class="footer-col"><h4 data-i18n="foot_ws">Workspace</h4><a href="{{ route('login') }}" data-i18n="foot_signin">Sign in</a><a href="{{ route('signup') }}" data-i18n="foot_create">Create account</a></div>
     </div>
     <div class="container footer-bottom"><span>© {{ date('Y') }} GardaCyber</span><span data-i18n="foot_right">scan only what you own or have permission to test</span></div>
   </footer>

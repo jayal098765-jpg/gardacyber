@@ -156,7 +156,6 @@
 
     plan_kicker: { en: 'Plans', id: 'Paket' },
     plan_h2: { en: 'Start inside the terminal.', id: 'Mulai di dalam terminal.' },
-    plan_sub: { en: 'Demo pricing for the hackathon build.', id: 'Harga demo untuk build hackathon.' },
     plan1_name: { en: 'Checklist', id: 'Checklist' },
     plan1_price: { en: 'Rp 0', id: 'Rp 0' },
     plan1_forever: { en: 'forever', id: 'selamanya' },
@@ -196,7 +195,6 @@
     foot_ws: { en: 'Workspace', id: 'Workspace' },
     foot_signin: { en: 'Sign in', id: 'Masuk' },
     foot_create: { en: 'Create account', id: 'Buat akun' },
-    foot_note: { en: 'Hackathon build — not a substitute for a professional security audit.', id: 'Build hackathon — bukan pengganti audit keamanan profesional.' },
     foot_right: { en: 'scan only what you own or have permission to test', id: 'scan hanya yang Anda miliki atau berizin untuk diuji' },
 
     // ---- Auth pages (login / signup) ----

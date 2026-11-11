@@ -16,7 +16,7 @@
         @csrf
         <label class="chk-row">
           <input type="checkbox" name="accept_terms" value="1" required />
-          <span>I understand this is a hackathon build. Scan results may be incomplete or inaccurate and require review.</span>
+          <span>I understand scan results may be incomplete or inaccurate and require review.</span>
         </label>
         <label class="chk-row">
           <input type="checkbox" name="accept_authorized" value="1" required />
