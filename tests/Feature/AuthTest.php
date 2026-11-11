@@ -4,11 +4,21 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Http::fake([
+            'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true]),
+        ]);
+    }
 
     public function test_guest_sees_landing_page(): void
     {
@@ -22,6 +32,7 @@ class AuthTest extends TestCase
             'display_name' => 'New User',
             'password' => 'hackathon',
             'password_confirmation' => 'hackathon',
+            'g-recaptcha-response' => 'dummy-token',
         ])->assertRedirect(route('terms.accept'));
 
         $this->assertAuthenticated();
@@ -36,6 +47,7 @@ class AuthTest extends TestCase
             'email' => 'taken@example.com',
             'password' => 'short',
             'password_confirmation' => 'short',
+            'g-recaptcha-response' => 'dummy-token',
         ])->assertSessionHasErrors(['email', 'password']);
     }
 
@@ -46,6 +58,7 @@ class AuthTest extends TestCase
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
+            'g-recaptcha-response' => 'dummy-token',
         ])->assertRedirect(route('dashboard'));
 
         $this->assertAuthenticatedAs($user);
@@ -59,7 +72,19 @@ class AuthTest extends TestCase
         $this->post('/login', [
             'email' => 'nobody@example.com',
             'password' => 'wrong-password',
+            'g-recaptcha-response' => 'dummy-token',
         ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    public function test_signup_requires_recaptcha_token(): void
+    {
+        $this->post('/signup', [
+            'email' => 'new@example.com',
+            'password' => 'hackathon',
+            'password_confirmation' => 'hackathon',
+        ])->assertSessionHasErrors('recaptcha');
 
         $this->assertGuest();
     }

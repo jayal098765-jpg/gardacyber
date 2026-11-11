@@ -8,11 +8,21 @@ use App\Models\User;
 use App\Services\SecurityRatingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BackendRegressionTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Http::fake([
+            'https://www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true]),
+        ]);
+    }
 
     public function test_dashboard_selects_worst_severity_and_excludes_other_workspaces(): void
     {
@@ -59,20 +69,20 @@ class BackendRegressionTest extends TestCase
     public function test_login_attempts_are_throttled(): void
     {
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->post('/login', ['email' => 'missing@gardacyber.test', 'password' => 'wrong'])->assertSessionHasErrors('email');
+            $this->post('/login', ['email' => 'missing@gardacyber.test', 'password' => 'wrong', 'g-recaptcha-response' => 'dummy-token'])->assertSessionHasErrors('email');
         }
 
-        $this->post('/login', ['email' => 'missing@gardacyber.test', 'password' => 'wrong'])->assertTooManyRequests();
+        $this->post('/login', ['email' => 'missing@gardacyber.test', 'password' => 'wrong', 'g-recaptcha-response' => 'dummy-token'])->assertTooManyRequests();
         $this->assertGuest();
     }
 
     public function test_signup_attempts_are_throttled(): void
     {
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->post('/signup', [])->assertSessionHasErrors(['email', 'password']);
+            $this->post('/signup', ['g-recaptcha-response' => 'dummy-token'])->assertSessionHasErrors(['email', 'password']);
         }
 
-        $this->post('/signup', [])->assertTooManyRequests();
+        $this->post('/signup', ['g-recaptcha-response' => 'dummy-token'])->assertTooManyRequests();
         $this->assertDatabaseCount('users', 0);
     }
 
@@ -86,6 +96,7 @@ class BackendRegressionTest extends TestCase
             'password' => 'strong-password',
             'password_confirmation' => 'strong-password',
             'terms_accepted_at' => now()->toDateTimeString(),
+            'g-recaptcha-response' => 'dummy-token',
         ])->assertRedirect(route('terms.accept'));
 
         $this->assertAuthenticated();
