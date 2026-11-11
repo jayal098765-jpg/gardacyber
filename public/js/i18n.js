@@ -19,7 +19,7 @@
     hero_t1: { en: 'Know your', id: 'Kenali' },
     hero_t2: { en: 'perimeter.', id: 'perimeter Anda.' },
     hero_t3: { en: 'Own the next move.', id: 'Ambil langkah berikutnya.' },
-    hero_desc: { en: 'GardaCyber maps what your domains expose to the internet and flags weak headers, exposed paths, and compromise signals. You see the evidence and decide what to do next.', id: 'GardaCyber memetakan apa yang diekspos domain Anda ke internet dan menandai header lemah, path terekspos, serta sinyal kompromi. Anda melihat buktinya lalu memutuskan langkah berikutnya.' },
+    hero_desc: { en: 'GardaCyber maps what you expose to the internet — weak headers, exposed paths, and compromise signals — so you can fix them fast.', id: 'GardaCyber memetakan apa yang terekspos ke internet — header lemah, path terbuka, dan sinyal kompromi — biar cepat kamu perbaiki.' },
     hero_cta_launch: { en: 'Launch scan workspace', id: 'Buka workspace scan' },
     hero_cta_see: { en: 'See the console', id: 'Lihat konsol' },
     hero_cmd: { en: '$ ./gardacyber --scan perimeter --no-credit-card', id: '$ ./gardacyber --scan perimeter --tanpa-kartu-kredit' },
@@ -35,7 +35,7 @@
 
     cov_kicker: { en: 'Reconnaissance coverage', id: 'Cakupan pengintaian' },
     cov_h2: { en: 'Checks that run like an attacker\'s checklist.', id: 'Pemeriksaan yang berjalan seperti daftar periksa penyerang.' },
-    cov_sub: { en: 'Inventory first, then probe: hosts, ports, headers, paths, and content signatures land in one queue.', id: 'Inventaris dulu, baru probe: host, port, header, path, dan signature konten masuk dalam satu antrean.' },
+    cov_sub: { en: 'Hosts, ports, headers, paths, and content signatures land in one queue.', id: 'Host, port, header, path, dan signature konten masuk dalam satu antrean.' },
     cov_stat1_v: { en: '14', id: '14' },
     cov_stat1_l: { en: 'Probe categories', id: 'Kategori probe' },
     cov_stat1_s: { en: 'DNS, ports, headers, paths, incident keywords, and more.', id: 'DNS, port, header, path, kata kunci insiden, dan lainnya.' },
@@ -96,7 +96,7 @@
 
     inc_kicker: { en: 'Unique to GardaCyber', id: 'Khas GardaCyber' },
     inc_h2: { en: 'Incident Check. What a regular scanner skips.', id: 'Incident Check. Yang dilewatkan scanner biasa.' },
-    inc_sub2: { en: 'Beyond CVEs, GardaCyber sweeps indexed content for signs a live page has already been compromised.', id: 'Di luar CVE, GardaCyber menyapu konten terindeks untuk tanda halaman langsung telah disusupi.' },
+    inc_sub2: { en: 'GardaCyber sweeps indexed content for signs a live page has been compromised.', id: 'GardaCyber menyapu konten terindeks untuk tanda halaman langsung telah disusupi.' },
     inc_card1_t: { en: 'Defacement', id: 'Defacement' },
     inc_card1_d: { en: 'Hacked-by pages, pwned messages, and attacker greetz markers.', id: 'Halaman hacked-by, pesan pwned, dan penanda greetz penyerang.' },
     inc_card2_t: { en: 'Gambling injection', id: 'Injeksi judi' },
@@ -111,7 +111,7 @@
 
     cap_kicker: { en: 'Capabilities', id: 'Kemampuan' },
     cap_h2: { en: 'Built for focused security work.', id: 'Dibangun untuk pekerjaan keamanan yang fokus.' },
-    cap_sub: { en: 'One space for assets, findings, and report exports.', id: 'Satu tempat untuk aset, temuan, dan ekspor laporan.' },
+    cap_sub: { en: 'Assets, findings, and reports in one clean workspace.', id: 'Aset, temuan, dan laporan dalam satu workspace yang rapi.' },
     cap_c1_t: { en: 'Asset inventory', id: 'Inventaris aset' },
     cap_c1_d: { en: 'Discovered hosts grouped by root domain with HTTP status, server, ports, and technologies.', id: 'Host yang ditemukan dikelompokkan per root domain dengan status HTTP, server, port, dan teknologi.' },
     cap_c2_t: { en: 'Exposure probes', id: 'Probe eksposur' },
@@ -127,7 +127,7 @@
 
     wf_kicker: { en: 'Workflow', id: 'Alur kerja' },
     wf_h2: { en: 'One scan. Five stages.', id: 'Satu scan. Lima tahap.' },
-    wf_sub: { en: 'The same chain, in the same order, every time.', id: 'Rangkaian yang sama, dengan urutan yang sama, setiap kali.' },
+    wf_sub: { en: 'The same chain every time.', id: 'Rangkaian yang sama setiap kali.' },
     wf_s1_t: { en: 'Discover', id: 'Temukan' },
     wf_s1_d: { en: 'Resolve DNS and enumerate live subdomains.', id: 'Selesaikan DNS dan enumerasi subdomain aktif.' },
     wf_s1_tag: { en: 'dig · DNS A/AAAA', id: 'dig · DNS A/AAAA' },
@@ -197,7 +197,23 @@
     foot_signin: { en: 'Sign in', id: 'Masuk' },
     foot_create: { en: 'Create account', id: 'Buat akun' },
     foot_note: { en: 'Hackathon build — not a substitute for a professional security audit.', id: 'Build hackathon — bukan pengganti audit keamanan profesional.' },
-    foot_right: { en: 'scan only what you own or have permission to test', id: 'scan hanya yang Anda miliki atau berizin untuk diuji' }
+    foot_right: { en: 'scan only what you own or have permission to test', id: 'scan hanya yang Anda miliki atau berizin untuk diuji' },
+
+    // ---- Auth pages (login / signup) ----
+    auth_title: { en: 'Sign in', id: 'Masuk' },
+    auth_sub: { en: 'Back to your scans and findings.', id: 'Kembali ke scan dan temuan Anda.' },
+    label_email: { en: 'Email', id: 'Email' },
+    label_password: { en: 'Password', id: 'Kata sandi' },
+    label_remember: { en: 'Keep me signed in', id: 'Biarkan saya tetap masuk' },
+    btn_signin: { en: 'Sign in', id: 'Masuk' },
+    auth_foot_signup: { en: 'New to GardaCyber? Create an account', id: 'Baru di GardaCyber? Buat akun' },
+    signup_title: { en: 'Create your account', id: 'Buat akun Anda' },
+    signup_sub: { en: 'Scans, findings, and reports stay inside your own workspace.', id: 'Scan, temuan, dan laporan tersimpan di workspace Anda sendiri.' },
+    label_display_name: { en: 'Display name (optional)', id: 'Nama tampilan (opsional)' },
+    label_confirm_password: { en: 'Confirm password', id: 'Konfirmasi kata sandi' },
+    placeholder_password: { en: 'At least 8 characters', id: 'Minimal 8 karakter' },
+    btn_signup: { en: 'Create account', id: 'Buat akun' },
+    auth_foot_login: { en: 'Already have an account? Sign in', id: 'Sudah punya akun? Masuk' },
   };
 
   var CURRENT = 'en';
