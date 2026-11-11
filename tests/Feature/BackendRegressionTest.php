@@ -88,6 +88,43 @@ class BackendRegressionTest extends TestCase
         $this->assertDatabaseCount('users', 0);
     }
 
+    public function test_storyboard_renders_attack_phases_for_group(): void
+    {
+        $user = User::factory()->create(['terms_accepted_at' => now()]);
+        $group = AssetGroup::factory()->for($user)->create(['root_domain' => 'story.test']);
+
+        Finding::factory()->open()->vulnerability()->severity('high')->create([
+            'asset_group_id' => $group->id,
+            'category' => 'port-fingerprint',
+            'title' => 'Open database port exposed',
+        ]);
+
+        Finding::factory()->open()->incident()->severity('critical')->create([
+            'asset_group_id' => $group->id,
+            'title' => 'Gambling injection detected',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('groups.storyboard', $group))
+            ->assertOk()
+            ->assertSee('Attack Storyboard')
+            ->assertSee('Reconnaissance')
+            ->assertSee('Compromise')
+            ->assertSee('Open database port exposed')
+            ->assertSee('Gambling injection detected');
+    }
+
+    public function test_storyboard_is_scoped_to_owner(): void
+    {
+        $owner = User::factory()->create();
+        $intruder = User::factory()->create(['terms_accepted_at' => now()]);
+        $group = AssetGroup::factory()->for($owner)->create();
+
+        $this->actingAs($intruder)
+            ->get(route('groups.storyboard', $group))
+            ->assertNotFound();
+    }
+
     public function test_signup_regenerates_session_token_and_ignores_terms_override(): void
     {
         $this->fakeRecaptchaOk();

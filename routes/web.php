@@ -40,6 +40,7 @@ Route::middleware(['auth', EnsureTermsAccepted::class])->group(function () {
 
     Route::get('/groups', [GroupController::class, 'index'])->name('groups.index');
     Route::get('/groups/{group}', [GroupController::class, 'show'])->name('groups.show');
+    Route::get('/groups/{group}/storyboard', [GroupController::class, 'storyboard'])->name('groups.storyboard');
     Route::post('/groups/{group}/ai-summary', [GroupController::class, 'aiSummary'])->name('groups.ai-summary');
     Route::delete('/groups/{group}', [GroupController::class, 'destroy'])->name('groups.destroy');
 

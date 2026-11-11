@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AssetGroup;
 use App\Models\Finding;
 use App\Services\AiService;
+use App\Services\AttackStoryboardService;
 use App\Services\SecurityRatingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -62,5 +63,17 @@ class GroupController extends Controller
         $group->delete();
 
         return redirect()->route('groups.index')->with('status', 'Asset group deleted.');
+    }
+
+    public function storyboard(Request $request, AssetGroup $group, AttackStoryboardService $storyboard): View
+    {
+        abort_unless($group->user_id === $request->user()->id, 404);
+
+        return view('app.groups.storyboard', [
+            'group' => $group,
+            'storyboard' => $storyboard->build($group),
+            'assetsCount' => $group->assets()->count(),
+            'ratings' => app(SecurityRatingService::class)->rateGroup($group),
+        ]);
     }
 }

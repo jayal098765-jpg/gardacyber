@@ -9,6 +9,10 @@
       <p>{{ $group->assets_count ?? $assets->count() }} assets · last scanned {{ $group->last_scanned_at?->diffForHumans() ?? 'never' }}</p>
     </div>
     <div class="page-actions">
+      <a class="btn btn-ghost btn-sm" href="{{ route('groups.storyboard', $group) }}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Storyboard
+      </a>
       <a class="btn btn-ghost btn-sm" href="{{ route('scans.new') }}">Rescan</a>
       <form method="POST" action="{{ route('groups.destroy', $group) }}" onsubmit="return confirm('Delete this group and all its data?')">
         @csrf

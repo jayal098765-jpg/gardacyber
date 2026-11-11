@@ -9,16 +9,16 @@
     <div class="hero-scanlines" aria-hidden="true"></div>
     <div class="container hero-layout">
       <div class="hero-copy" data-reveal>
-        <p class="product-label"><span class="signal-dot"></span> <span data-i18n="hero_label">external-attack-surface.terminal</span></p>
+        <p class="product-label"><span class="signal-dot"></span> <span data-i18n="hero_label">attack-storyboard.engine</span></p>
         <h1>
-          <span data-i18n="hero_t1">Know your</span><br />
-          <span data-i18n="hero_t2">perimeter.</span><br />
-          <span class="accent-word" data-i18n="hero_t3">Own the next move.</span>
+          <span data-i18n="hero_t1">Every attack</span><br />
+          <span data-i18n="hero_t2">leaves a trail.</span><br />
+          <span class="accent-word" data-i18n="hero_t3">See it unfold.</span>
         </h1>
-        <p class="hero-description" data-i18n="hero_desc">GardaCyber maps what you expose to the internet — assets, open ports, weak headers, and live compromise signals. Evidence in, decisions out, in one workspace.</p>
+        <p class="hero-description" data-i18n="hero_desc">GardaCyber turns your scan data into a visual attack storyboard — recon, probes, exploitation, and compromise — so you see how you would be breached, not just what is broken.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary btn-lg" href="{{ route('signup') }}" data-i18n="hero_cta_launch">Launch scan workspace</a>
-          <a class="text-link" href="#workspace-preview"><span data-i18n="hero_cta_see">See the console</span> <span aria-hidden="true">?</span></a>
+          <a class="btn btn-primary btn-lg" href="{{ route('signup') }}" data-i18n="hero_cta_launch">Build your storyboard</a>
+          <a class="text-link" href="#workspace-preview"><span data-i18n="hero_cta_see">See the console</span> <span aria-hidden="true">↗</span></a>
         </div>
         <p class="hero-note" data-i18n="hero_cmd">$ ./gardacyber --scan perimeter --no-credit-card</p>
       </div>
