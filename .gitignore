@@ -38,3 +38,7 @@ Thumbs.db
 /database/*.sqlite
 /database/*.sqlite-journal
 /storage/logs/*.log
+
+# ---- AI skill artifacts ----
+__pycache__/
+*.pyc
