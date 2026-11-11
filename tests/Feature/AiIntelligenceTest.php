@@ -14,6 +14,28 @@ class AiIntelligenceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Isolate tests from globally configured AI env vars (e.g. local dev .env).
+        foreach (['AI_PROVIDER', 'AI_API_KEY', 'AI_BASE_URL', 'AI_MODEL'] as $key) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+        }
+
+        config()->set([
+            'ai.provider' => null,
+            'ai.api_key' => null,
+            'ai.base_url' => null,
+            'ai.model' => null,
+            'services.ai.provider' => null,
+            'services.ai.api_key' => null,
+            'services.ai.base_url' => null,
+            'services.ai.model' => null,
+        ]);
+    }
+
     private function signedInUser(array $attributes = []): User
     {
         return User::factory()->create(array_merge([

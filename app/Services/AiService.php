@@ -6,11 +6,18 @@ use App\Models\AssetGroup;
 use App\Models\Finding;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class AiService
 {
+    private const MODEL_POOL_CACHE_KEY = 'openrouter_model_pool';
+
+    private const MODEL_POOL_TTL_SECONDS = 21600; // 6 hours
+
+    private const MAX_ROTATION_ATTEMPTS = 30;
+
     public function __construct(
         protected RemediationAdvisor $advisor,
         protected SecurityRatingService $ratingService
@@ -243,6 +250,111 @@ class AiService
      * @return array<string, mixed>|null
      */
     protected function callProvider(array $config, string $systemPrompt, string $userPrompt): ?array
+    {
+        // OpenRouter: rotate through available models so quota/rate-limit failures on
+        // one model automatically fall through to the next one.
+        if ($config['provider'] === 'openrouter') {
+            return $this->callProviderWithRotation($config, $systemPrompt, $userPrompt);
+        }
+
+        return $this->callSingleProvider($config, $systemPrompt, $userPrompt);
+    }
+
+    /**
+     * Try each model in rotation until one returns a usable JSON payload.
+     * Falls back to the configured model when the rotating list is unavailable.
+     *
+     * @param  array{provider: ?string, api_key: ?string, base_url: string, model: string}  $config
+     * @return array<string, mixed>|null
+     */
+    protected function callProviderWithRotation(array $config, string $systemPrompt, string $userPrompt): ?array
+    {
+        $models = $this->openRouterModels();
+        $configured = trim((string) $config['model']);
+
+        if (empty($models)) {
+            return $this->callSingleProvider($config, $systemPrompt, $userPrompt);
+        }
+
+        // Start rotation from a rotating offset so concurrent calls spread across models.
+        $count = count($models);
+        $offset = (int) Cache::increment('ai_model_rotation_offset');
+        if ($offset <= 0) {
+            $offset = random_int(0, $count - 1);
+        }
+        $offset %= $count;
+        $rotated = array_merge(
+            array_slice($models, $offset),
+            array_slice($models, 0, $offset)
+        );
+
+        // If a specific model is configured, try it first.
+        if ($configured && $configured !== '*') {
+            $rotated = array_values(array_unique(array_merge([$configured], $rotated)));
+        }
+
+        $attempts = min(self::MAX_ROTATION_ATTEMPTS, count($rotated));
+
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $candidate = $rotated[$attempt];
+
+            try {
+                $result = $this->callSingleProvider(
+                    array_merge($config, ['model' => $candidate]),
+                    $systemPrompt,
+                    $userPrompt,
+                );
+
+                if (is_array($result)) {
+                    return $result;
+                }
+            } catch (Throwable) {
+                // Try the next model.
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cache-enabled list of usable OpenRouter model IDs (free tiers first).
+     * Free models are preferred because the account may lack credit for paid ones.
+     *
+     * @return array<int, string>
+     */
+    protected function openRouterModels(): array
+    {
+        return Cache::remember(self::MODEL_POOL_CACHE_KEY, self::MODEL_POOL_TTL_SECONDS, function (): array {
+            try {
+                $response = Http::timeout(8)
+                    ->connectTimeout(5)
+                    ->get('https://openrouter.ai/api/v1/models');
+
+                if (! $response->successful()) {
+                    return [];
+                }
+
+                $ids = collect($response->json('data') ?? [])
+                    ->pluck('id')
+                    ->filter(fn ($id): bool => is_string($id) && $id !== '')
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $free = array_values(array_filter($ids, fn (string $id): bool => str_ends_with($id, ':free')));
+
+                return $free;
+            } catch (Throwable) {
+                return [];
+            }
+        });
+    }
+
+    /**
+     * @param  array{provider: ?string, api_key: ?string, base_url: string, model: string}  $config
+     * @return array<string, mixed>|null
+     */
+    protected function callSingleProvider(array $config, string $systemPrompt, string $userPrompt): ?array
     {
         if ($config['provider'] === 'anthropic') {
             $url = str_ends_with($config['base_url'], '/messages')
