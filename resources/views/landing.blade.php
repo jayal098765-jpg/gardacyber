@@ -1,6 +1,6 @@
 @extends('layouts.marketing')
 
-@section('title', 'GardaCyber — Perimeter Attack Surface Terminal')
+@section('title', 'GardaCyber — Visualize How Your Sites Get Attacked')
 
 @section('content')
   {{-- ======================= HERO / TERMINAL ======================= --}}
@@ -20,7 +20,7 @@
           <a class="btn btn-primary btn-lg" href="{{ route('signup') }}" data-i18n="hero_cta_launch">Build your storyboard</a>
           <a class="text-link" href="#workspace-preview"><span data-i18n="hero_cta_see">See the console</span> <span aria-hidden="true">↗</span></a>
         </div>
-        <p class="hero-note" data-i18n="hero_cmd">$ ./gardacyber --scan perimeter --no-credit-card</p>
+        <p class="hero-note" data-i18n="hero_cmd">$ gardacyber attack-storyboard --domain example.org</p>
       </div>
 
       <div class="terminal-window" data-reveal aria-label="GardaCyber live demo terminal output">
@@ -55,9 +55,9 @@
   <section class="section" id="coverage">
     <div class="container">
       <div class="section-head">
-        <p class="section-kicker" data-i18n="cov_kicker">Reconnaissance coverage</p>
-        <h2 data-i18n="cov_h2">Checks that run like an attacker's checklist.</h2>
-        <p class="section-sub" data-i18n="cov_sub">Asset inventory, exposure probes, weak-header audit, and incident-signature sweeps — surfaced into one clear queue.</p>
+        <p class="section-kicker" data-i18n="cov_kicker">How GardaCyber works</p>
+        <h2 data-i18n="cov_h2">Findings become a story, not just a list.</h2>
+        <p class="section-sub" data-i18n="cov_sub">Every probe type feeds a stage in the attack storyboard — recon, probing, exploitation, compromise — so findings land in context, not a flat list.</p>
       </div>
 
       <div class="stat-grid" data-reveal>
@@ -160,9 +160,9 @@
   <section class="section" id="incident-check">
     <div class="container">
       <div class="section-head">
-        <p class="section-kicker" data-i18n="inc_kicker">Unique to GardaCyber</p>
-        <h2 data-i18n="inc_h2">Incident Check.<br />What a regular scanner skips.</h2>
-        <p class="section-sub" data-i18n="inc_sub2">Beyond CVEs, GardaCyber sweeps indexed content for signs a live page has already been compromised.</p>
+        <p class="section-kicker" data-i18n="inc_kicker">Try this with a regular scanner</p>
+        <h2 data-i18n="inc_h2">Compromise signals, reconstructed step by step.</h2>
+        <p class="section-sub" data-i18n="inc_sub2">Every open finding is placed into an attack phase — recon, probing, exploitation, compromise, impact — so you can see the whole picture.</p>
       </div>
 
       <div class="incident-grid" data-reveal>
@@ -190,7 +190,7 @@
           <span class="live-badge">● live</span>
         </div>
         <div class="browser-body">
-          <div class="panel-head"><span class="panel-title" data-i18n="inc_queue">Incident queue — evidence first</span></div>
+          <div class="panel-head"><span class="panel-title" data-i18n="inc_queue">Live compromise signals — evidence first</span></div>
           <div class="incident-feed">
             <div class="incident-row">
               <span class="badge sev-critical"><span class="dot"></span>Critical</span>
@@ -229,7 +229,7 @@
       <div class="section-head">
         <p class="section-kicker" data-i18n="cap_kicker">Capabilities</p>
         <h2 data-i18n="cap_h2">Built for focused security work.</h2>
-        <p class="section-sub" data-i18n="cap_sub">Everything in one attacking surface workspace — no agents, no noise.</p>
+        <p class="section-sub" data-i18n="cap_sub">Visual storyboards, AI analysis, and evidence in one workspace.</p>
       </div>
 
       <div class="feature-grid" data-reveal>
@@ -248,8 +248,8 @@
     <div class="container">
       <div class="section-head">
         <p class="section-kicker" data-i18n="wf_kicker">Workflow</p>
-        <h2 data-i18n="wf_h2">One scan. Five stages.</h2>
-        <p class="section-sub" data-i18n="wf_sub">The same chain, in the same order, every time.</p>
+        <h2 data-i18n="wf_h2">From scan data to a storyboard.</h2>
+        <p class="section-sub" data-i18n="wf_sub">Phases are consistent, so stories are comparable across sites.</p>
       </div>
 
       <div class="stage-grid" data-reveal>
@@ -261,7 +261,7 @@
       </div>
 
       <div class="stage-legend">
-        <p data-i18n="wf_legend">Stages 03–04 produce <b>vulnerabilities</b> and <b>incidents</b> in separate lanes.</p>
+        <p data-i18n="wf_legend">Read the story left to right — it mirrors how an attacker moves.</p>
       </div>
 
       <div class="rating-panel">
@@ -281,6 +281,19 @@
           <div class="rating-stat"><span class="rs-label" data-i18n="wf_rating_incs">Open incidents</span><span class="rs-value">4</span></div>
           <div class="rating-stat"><span class="rs-label" data-i18n="wf_rating_res">Resolved</span><span class="rs-value">63</span></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  {{-- ======================= CTA / GARDA AI ======================= --}}
+  <section class="section" id="garda-ai">
+    <div class="container">
+      <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:28px; flex-wrap:wrap; padding:40px 44px;">
+        <div style="max-width:560px;">
+          <h2 style="margin:0 0 10px;" data-i18n="cta_band_title">Ragu mulai dari mana? Tanya Garda AI.</h2>
+          <p class="section-sub" style="margin-top:0;" data-i18n="cta_band_sub">Asisten keamanan dalam Bahasa Indonesia yang membaca data workspace-mu — minta dia menjelaskan temuan atau menyusun langkah berikutnya.</p>
+        </div>
+        <a class="btn btn-primary btn-lg" href="{{ route('signup') }}" data-i18n="cta_band_btn">Tanya Garda AI</a>
       </div>
     </div>
   </section>

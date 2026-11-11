@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
-  <title>@yield('title', 'GardaCyber — Perimeter Attack Surface Terminal')</title>
-  <meta name="description" content="GardaCyber is a terminal-grade attack surface workspace: asset discovery, exposure checks, and evidence-led incident triage in one command-line-inspired workspace." />
+  <title>@yield('title', 'GardaCyber — Visualize How Your Sites Get Attacked')</title>
+  <meta name="description" content="GardaCyber rebuilds your scan data into a visual attack storyboard — recon, exploitation, compromise — and explains it in Indonesian via Garda AI. Not just a vulnerability list." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -18,10 +18,9 @@
     <div class="nav-inner">
       <a class="brand" href="{{ route('landing') }}"><span class="garda-mark" aria-hidden="true">G</span><span class="brand-name">GardaCyber<span class="brand-period">.</span></span></a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="{{ route('landing') }}#coverage" data-i18n="nav_perimeter">Perimeter</a>
-        <a href="{{ route('landing') }}#features" data-i18n="nav_workspace">Workspace</a>
-        <a href="{{ route('landing') }}#incident-check" data-i18n="nav_incidents">Incidents</a>
-        <a href="{{ route('landing') }}#how" data-i18n="nav_workflow">Workflow</a>
+        <a href="{{ route('landing') }}#coverage" data-i18n="nav_how">How it works</a>
+        <a href="{{ route('landing') }}#how" data-i18n="nav_storyboard">Storyboard</a>
+        <a href="{{ route('landing') }}#garda-ai" data-i18n="nav_ai">AI</a>
       </nav>
       <div class="nav-actions">
         <div class="lang-toggle" role="group" aria-label="Language">
@@ -38,10 +37,9 @@
       </div>
     </div>
     <nav class="nav-mobile" id="navMobile" aria-label="Mobile">
-      <a href="{{ route('landing') }}#coverage" data-i18n="nav_perimeter">Perimeter</a>
-      <a href="{{ route('landing') }}#features" data-i18n="nav_workspace">Workspace</a>
-      <a href="{{ route('landing') }}#incident-check" data-i18n="nav_incidents">Incidents</a>
-      <a href="{{ route('landing') }}#how" data-i18n="nav_workflow">Workflow</a>
+      <a href="{{ route('landing') }}#coverage" data-i18n="nav_how">How it works</a>
+      <a href="{{ route('landing') }}#how" data-i18n="nav_storyboard">Storyboard</a>
+      <a href="{{ route('landing') }}#garda-ai" data-i18n="nav_ai">AI</a>
       <a href="{{ route('login') }}" data-i18n="nav_signin">Sign in</a>
       <a href="{{ route('signup') }}" class="btn btn-primary" data-i18n="nav_getstarted">Get started</a>
     </nav>
