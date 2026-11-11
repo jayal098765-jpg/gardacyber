@@ -21,5 +21,10 @@ php artisan migrate --force
 echo "[GardaCyber] boot: seeding demo data"
 GARDA_SEED_FORCE=true php artisan app:demo-seed
 
+echo "[GardaCyber] boot: caching config, routes, views"
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
 echo "[GardaCyber] boot: starting server on :$PORT"
 exec php artisan serve --host=0.0.0.0 --port="${PORT:-8080}"
