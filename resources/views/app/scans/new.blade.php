@@ -4,7 +4,7 @@
 
 @section('content')
   <div class="page-head">
-    <h1>Launch Perimeter Assessment</h1>
+    <h1>Launch Scan</h1>
     <p>Checks one hostname: DNS, open ports, security headers, sensitive paths, and defacement or gambling-injection traces.</p>
   </div>
 
@@ -13,31 +13,16 @@
       @csrf
 
       <div class="field">
-        <label for="mode">Assessment Mode</label>
-        <select id="mode" name="mode" class="input" onchange="handleModeChange(this.value)">
-          <option value="demo" @selected(old('mode', 'demo') === 'demo')>
-            Demo Training Environment (Safe local fixture: training.gardacyber.test)
-          </option>
-          <option value="live" @selected(old('mode') === 'live')>
-            Authorized Live Scan (Real DNS, Open Ports, Security Headers, Exposures &amp; Incidents)
-          </option>
-        </select>
-        <p class="muted" id="modeHint" style="font-size: 12px; margin-top: 6px;">
-          Demo mode uses an isolated local training fixture to demonstrate the triage workflow without generating external network traffic.
-        </p>
-      </div>
-
-      <div class="field">
         <label for="domain">Target Hostname</label>
         <input id="domain" class="input input-lg mono" type="text" name="domain"
-               value="{{ old('domain', 'training.gardacyber.test') }}"
-               placeholder="training.gardacyber.test" autocomplete="off" spellcheck="false" required />
+               value="{{ old('domain') }}"
+               placeholder="example.com" autocomplete="off" spellcheck="false" required />
       </div>
 
       <div class="field">
         <label for="type">Inspection Scope</label>
         <select id="type" name="type" class="input">
-          <option value="full" @selected(old('type') === 'full')>Full Assessment (Defense Headers + Visible Compromise Signatures)</option>
+          <option value="full" @selected(old('type') === 'full')>Full Scan (Defense Headers + Visible Compromise Signatures)</option>
           <option value="vulnerability" @selected(old('type') === 'vulnerability')>Vulnerability Only (Security Headers Audit)</option>
           <option value="incident" @selected(old('type') === 'incident')>Incident Check (Defacement, Gambling &amp; SEO Keyword Heuristics)</option>
         </select>
@@ -61,7 +46,7 @@
         <label class="chk-row" style="margin-bottom: 0;">
           <input type="checkbox" name="authorized" value="1" @checked(old('authorized')) required />
           <span style="font-size: 13px;">
-            I certify that I am explicitly authorized to inspect this target or am using the isolated demo training fixture.
+            I certify that I am explicitly authorized to inspect this target.
           </span>
         </label>
       </div>
@@ -80,20 +65,6 @@
 
 @push('scripts')
 <script>
-function handleModeChange(mode) {
-  const domainInput = document.getElementById('domain');
-  const hint = document.getElementById('modeHint');
-  if (mode === 'demo') {
-    domainInput.value = 'training.gardacyber.test';
-    hint.textContent = 'Demo mode evaluates local safe training fixtures to demonstrate triage with zero outbound network footprint.';
-  } else {
-    if (domainInput.value === 'training.gardacyber.test') {
-      domainInput.value = '';
-    }
-    hint.textContent = 'Live mode inspects the target hostname: DNS subdomains, open ports, security headers, sensitive exposures, and defacement / gambling injection signatures. SSRF protected.';
-  }
-}
-
 function handleGroupSelect(select) {
   const selectedOption = select.options[select.selectedIndex];
   const domain = selectedOption.getAttribute('data-domain');

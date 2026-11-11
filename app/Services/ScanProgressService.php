@@ -20,7 +20,7 @@ class ScanProgressService
 
         return [
             'status' => $scan->status,
-            'mode' => $scan->options['mode'] ?? 'demo',
+            'mode' => 'live',
             'percent' => $scan->status === Scan::STATUS_COMPLETED ? 100 : min(95, $stage * 25),
             'stage_index' => $stage,
             'stages' => array_map(fn (string $name, int $index): array => [

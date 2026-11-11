@@ -7,10 +7,6 @@
     <div>
       <h1 class="mono" style="word-break: break-all;">{{ $scan->group->root_domain }}</h1>
       <p style="margin-top: 6px;">
-        <span class="mode-badge" style="background: var(--accent-soft, rgba(0,210,255,0.12)); color: var(--accent, #00d2ff); border-color: rgba(0,210,255,0.3);">
-          {{ strtoupper($initial['mode'] ?? 'DEMO') }} MODE
-        </span>
-        <span style="margin: 0 6px;">·</span>
         <span>Scope: {{ $scan->modeBadge() }}</span>
         <span style="margin: 0 6px;">·</span>
         <span>Started: {{ $scan->started_at ? $scan->started_at->diffForHumans() : 'queued' }}</span>
@@ -20,7 +16,7 @@
       @if ($scan->isLive())
         <form method="POST" action="{{ route('scans.stop', $scan) }}">
           @csrf
-          <button class="btn btn-ghost btn-sm danger" type="submit">Stop Assessment</button>
+          <button class="btn btn-ghost btn-sm danger" type="submit">Stop Scan</button>
         </form>
       @endif
       <a class="btn btn-ghost btn-sm" href="{{ route('groups.show', $scan->group) }}">View Asset Group</a>
@@ -86,7 +82,7 @@
 
     <div class="scan-done {{ $initial['finished'] ? '' : 'hidden' }}" id="scanDone">
       <div class="done-callout" id="doneCallout">
-        {{ $initial['message'] ?: 'Assessment finalized. New evidence has been attributed to the asset record.' }}
+        {{ $initial['message'] ?: 'Scan completed. New evidence has been attributed to the asset record.' }}
       </div>
       <div class="page-actions">
         <a class="btn btn-primary btn-sm" id="doneGroupLink" href="{{ $initial['group_url'] }}">View Updated Group Findings</a>

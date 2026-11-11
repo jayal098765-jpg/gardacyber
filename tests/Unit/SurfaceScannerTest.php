@@ -59,7 +59,13 @@ class SurfaceScannerTest extends TestCase
     public function test_analyzer_flags_defacement_and_gambling_heuristics_with_context(): void
     {
         $scanner = new SurfaceScanner;
-        $capture = $scanner->demoCapture();
+        $capture = [
+            'ip' => '192.0.2.10',
+            'status' => 200,
+            'headers' => ['content-type' => ['text/html']],
+            'body' => '<html><head><title>GardaCyber training fixture</title></head><body><h1>Hacked by training-team</h1><p>slot gacor jackpot maxwin</p></body></html>',
+            'truncated' => false,
+        ];
 
         $findings = $scanner->analyze($capture, 'incident');
         $titles = array_column($findings, 'title');

@@ -27,7 +27,6 @@ class ScanController extends Controller
         $validator = Validator::make($request->all(), [
             'domain' => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i'],
             'group_id' => ['nullable', 'integer'],
-            'mode' => ['required', 'in:demo,live'],
             'authorized' => ['required', 'accepted'],
             'type' => ['required', 'in:'.Scan::TYPE_FULL.','.Scan::TYPE_VULNERABILITY.','.Scan::TYPE_INCIDENT],
             'single_host' => ['nullable', 'boolean'],
@@ -53,13 +52,7 @@ class ScanController extends Controller
                 return back()->withErrors(['domain' => 'Enter a domain or pick an existing asset group.']);
             }
 
-            if ($request->input('mode') === 'demo' && $domain !== 'training.gardacyber.test') {
-                return back()->withInput()->withErrors(['domain' => 'Demo uses training.gardacyber.test only. Choose live mode for an authorized hostname.']);
-            }
-
-            if ($request->input('mode') === 'live') {
-                $scanner->assertAllowed($domain);
-            }
+            $scanner->assertAllowed($domain);
 
             $group = AssetGroup::firstOrCreate(
                 ['user_id' => $user->id, 'root_domain' => $domain],
@@ -74,11 +67,7 @@ class ScanController extends Controller
             }
         }
 
-        if ($request->input('mode') === 'live') {
-            $scanner->assertAllowed($group->root_domain);
-        } elseif ($group->root_domain !== 'training.gardacyber.test') {
-            return back()->withErrors(['group_id' => 'Only the training group supports demo mode.']);
-        }
+        $scanner->assertAllowed($group->root_domain);
 
         if ($group->scans()->whereIn('status', [Scan::STATUS_QUEUED, Scan::STATUS_RUNNING])->exists()) {
             return back()->withErrors(['domain' => 'A scan is already queued or running for this group.']);
@@ -96,7 +85,6 @@ class ScanController extends Controller
             'type' => $type,
             'status' => Scan::STATUS_QUEUED,
             'options' => [
-                'mode' => $request->input('mode'),
                 'single_host' => $group->single_host,
                 'stage' => 0,
             ],

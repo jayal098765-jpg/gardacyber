@@ -30,27 +30,26 @@ class RunSurfaceScan implements ShouldQueue
         }
 
         $scan = Scan::with('group')->findOrFail($this->scanId);
-        $demo = ($scan->options['mode'] ?? 'demo') === 'demo';
 
         try {
-            $this->stage($scan, 1, $demo ? 'Reading local training fixture. Discovering demo assets.' : 'Resolving public DNS and discovering live subdomains.');
+            $this->stage($scan, 1, 'Resolving public DNS and discovering live subdomains.');
 
-            $capture = $demo ? $scanner->demoCapture() : $scanner->capture($scan->group->root_domain);
-            $subdomains = $demo ? [] : $scanner->discoverSubdomains($scan->group->root_domain);
-            $openPorts = $demo ? [80, 443] : $scanner->probePorts($capture['ip']);
+            $capture = $scanner->capture($scan->group->root_domain);
+            $subdomains = $scanner->discoverSubdomains($scan->group->root_domain);
+            $openPorts = $scanner->probePorts($capture['ip']);
 
-            $this->stage($scan, 2, $demo ? 'Evaluating simulated defense signals and compromise signatures.' : 'Probing security headers, sensitive exposures, and web injection indicators.');
+            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, and web injection indicators.');
 
             $findings = $scanner->analyze($capture, $scan->type);
 
-            if (! $demo && $scan->type !== Scan::TYPE_INCIDENT) {
+            if ($scan->type !== Scan::TYPE_INCIDENT) {
                 $activeFindings = $scanner->probeActiveVulnerabilities($scan->group->root_domain, $capture['ip']);
                 $findings = array_merge($findings, $activeFindings);
             }
 
             $this->stage($scan, 3, 'Persisting observed perimeter assets, open ports, and evidence.');
 
-            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $demo, $rating): void {
+            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $rating): void {
                 $current = Scan::lockForUpdate()->find($scan->id);
 
                 if (! $current || $current->status !== Scan::STATUS_RUNNING) {
@@ -100,7 +99,7 @@ class RunSurfaceScan implements ShouldQueue
                         $record->first_seen_at = now();
                     }
 
-                    $record->evidence = ($demo ? '[DEMO FIXTURE] ' : '[LIVE PROBE] ').$finding['evidence'];
+                    $record->evidence = '[LIVE PROBE] '.$finding['evidence'];
                     $record->save();
                 }
 
@@ -115,7 +114,7 @@ class RunSurfaceScan implements ShouldQueue
                         'assets' => $assetCount,
                         'vulnerabilities' => $vulnCount,
                         'incidents' => $incidentCount,
-                        'message' => 'Completed. '.($demo ? 'Demo training fixture evaluated.' : 'Live perimeter scanned (HTTP '.$capture['status'].').').' '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.',
+                        'message' => 'Completed. Live perimeter scanned (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.',
                     ]),
                 ]);
 
@@ -149,7 +148,7 @@ class RunSurfaceScan implements ShouldQueue
                 'status' => Scan::STATUS_FAILED,
                 'finished_at' => now(),
                 'options' => array_merge($scan->options ?? [], [
-                    'message' => 'Assessment interrupted: '.mb_substr($msg, 0, 200),
+                    'message' => 'Scan interrupted: '.mb_substr($msg, 0, 200),
                 ]),
             ]);
         }

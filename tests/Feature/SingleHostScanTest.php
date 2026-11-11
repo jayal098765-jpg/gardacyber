@@ -26,7 +26,6 @@ class SingleHostScanTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('scans.store'), [
                 'domain' => 'training.gardacyber.test',
-                'mode' => 'demo',
                 'type' => 'full',
                 'authorized' => '1',
                 'single_host' => '1',
@@ -55,7 +54,6 @@ class SingleHostScanTest extends TestCase
         $this->actingAs($user)
             ->post(route('scans.store'), [
                 'domain' => 'training.gardacyber.test',
-                'mode' => 'demo',
                 'type' => 'full',
                 'authorized' => '1',
             ])
@@ -77,7 +75,6 @@ class SingleHostScanTest extends TestCase
         $this->actingAs($user)
             ->post(route('scans.store'), [
                 'group_id' => $group->id,
-                'mode' => 'demo',
                 'type' => 'full',
                 'authorized' => '1',
                 'single_host' => '1',

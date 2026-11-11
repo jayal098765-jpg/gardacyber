@@ -24,7 +24,7 @@ class ScanFlowTest extends TestCase
         return User::factory()->create(['terms_accepted_at' => now()]);
     }
 
-    public function test_new_demo_scan_creates_group_and_queues_job(): void
+    public function test_new_scan_creates_group_and_queues_job(): void
     {
         Queue::fake();
         $user = $this->signedInUser();
@@ -32,7 +32,6 @@ class ScanFlowTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('scans.store'), [
                 'domain' => 'training.gardacyber.test',
-                'mode' => 'demo',
                 'type' => 'full',
                 'authorized' => '1',
             ]);
@@ -58,7 +57,6 @@ class ScanFlowTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('scans.store'), [
                 'domain' => 'unauthorized.test',
-                'mode' => 'live',
                 'type' => 'full',
                 'authorized' => '1',
             ]);
@@ -76,7 +74,6 @@ class ScanFlowTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('scans.store'), [
                 'domain' => 'any-target.example.org',
-                'mode' => 'live',
                 'type' => 'full',
                 'authorized' => '1',
             ]);
@@ -91,19 +88,48 @@ class ScanFlowTest extends TestCase
         $user = $this->signedInUser();
         $group = AssetGroup::factory()->create([
             'user_id' => $user->id,
-            'root_domain' => 'training.gardacyber.test',
+            'root_domain' => 'example.com',
         ]);
 
         $scan = Scan::create([
             'asset_group_id' => $group->id,
             'type' => 'full',
             'status' => Scan::STATUS_QUEUED,
-            'options' => ['mode' => 'demo', 'stage' => 0],
+            'options' => ['stage' => 0],
             'stage_count' => 4,
         ]);
 
+        $fakeScanner = new class extends SurfaceScanner
+        {
+            public function capture(string $hostname): array
+            {
+                return [
+                    'ip' => '93.184.216.34',
+                    'status' => 200,
+                    'headers' => ['content-type' => ['text/html; charset=utf-8'], 'server' => ['nginx/1.24.0']],
+                    'body' => '<html><head><title>Example Domain</title></head><body><h1>Example</h1></body></html>',
+                    'truncated' => false,
+                ];
+            }
+
+            public function discoverSubdomains(string $rootDomain): array
+            {
+                return [];
+            }
+
+            public function probePorts(string $ip): array
+            {
+                return [80, 443];
+            }
+
+            public function probeActiveVulnerabilities(string $hostname, string $ip): array
+            {
+                return [];
+            }
+        };
+
         $job = new RunSurfaceScan($scan->id);
-        $job->handle(app(SurfaceScanner::class), app(SecurityRatingService::class));
+        $job->handle($fakeScanner, app(SecurityRatingService::class));
 
         $this->assertSame(Scan::STATUS_COMPLETED, $scan->fresh()->status);
         $this->assertGreaterThan(0, Asset::where('asset_group_id', $group->id)->count());
@@ -128,7 +154,7 @@ class ScanFlowTest extends TestCase
             'type' => 'full',
             'status' => Scan::STATUS_RUNNING,
             'started_at' => now(),
-            'options' => ['mode' => 'demo', 'stage' => 1],
+            'options' => ['stage' => 1],
         ]);
 
         $this->actingAs($user)->post(route('scans.stop', $scan))->assertRedirect();
@@ -157,7 +183,6 @@ class ScanFlowTest extends TestCase
 
         $this->actingAs($intruder)->post(route('scans.store'), [
             'group_id' => $group->id,
-            'mode' => 'demo',
             'type' => 'full',
             'authorized' => '1',
         ])->assertNotFound();
@@ -169,7 +194,6 @@ class ScanFlowTest extends TestCase
     {
         $this->actingAs($this->signedInUser())->post(route('scans.store'), [
             'domain' => 'training.gardacyber.test',
-            'mode' => 'demo',
             'type' => 'full',
         ])->assertSessionHasErrors('authorized');
 
