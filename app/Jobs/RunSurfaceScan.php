@@ -31,34 +31,60 @@ class RunSurfaceScan implements ShouldQueue
 
         $scan = Scan::with('group')->findOrFail($this->scanId);
 
+        $incidentOnly = $scan->type === Scan::TYPE_INCIDENT;
+        $advanced = ! $incidentOnly && (bool) config('scanner.active_probes', true);
+
         try {
-            $this->stage($scan, 1, 'Resolving public DNS, discovering live subdomains, and checking the CDN/WAF edge.');
+            $this->stage(
+                $scan,
+                1,
+                $incidentOnly
+                    ? 'Resolving DNS, probing the edge and open ports, and capturing the application.'
+                    : 'Resolving public DNS and discovering live subdomains.'
+            );
 
             $capture = $scanner->capture($scan->group->root_domain);
             $subdomains = $scanner->discoverSubdomains($scan->group->root_domain);
             $openPorts = $scanner->probePorts($capture['ip']);
 
-            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, directory and backup paths, advanced injection, brute-force posture, and takeover indicators.');
+            $this->stage(
+                $scan,
+                2,
+                $incidentOnly
+                    ? 'Auditing defacement, gambling, and SEO compromise heuristics.'
+                    : 'Probing the CDN/WAF edge, capturing the application, and mapping open ports.'
+            );
 
             $findings = $scanner->analyze($capture, $scan->type);
             $findings = [...$findings, ...$scanner->wafFindings($capture, $scan->group->root_domain)];
 
-            if ($scan->type !== Scan::TYPE_INCIDENT && (bool) config('scanner.active_probes', true)) {
+            if ($advanced) {
+                $this->stage($scan, 3, 'Auditing security headers, sensitive exposures, and visible compromise signatures.');
+
                 $findings = [...$findings, ...$scanner->probeActiveVulnerabilities($scan->group->root_domain, $capture['ip'])];
 
-                $advancedFindings = [
+                $this->stage($scan, 4, 'Probing common directories, backup files, and archive paths.');
+
+                $findings = [...$findings, ...$scanner->probeDirectoryExposure($scan->group->root_domain, $capture['ip'], $capture)];
+
+                $this->stage($scan, 5, 'Running injection reflection and brute-force posture probes.');
+
+                $findings = [
+                    ...$findings,
                     ...$scanner->probeAdvancedXss($scan->group->root_domain, $capture['ip']),
                     ...$scanner->probeAuthBruteForceResistance($scan->group->root_domain, $capture['ip'], $capture),
-                    ...$scanner->probeSubdomainTakeover($subdomains),
-                    ...$scanner->probeDirectoryExposure($scan->group->root_domain, $capture['ip'], $capture),
                 ];
 
-                $findings = [...$findings, ...$advancedFindings];
+                $this->stage($scan, 6, 'Checking subdomain takeover indicators.');
+
+                $findings = [...$findings, ...$scanner->probeSubdomainTakeover($subdomains)];
             }
 
-            $this->stage($scan, 3, 'Persisting observed perimeter assets, open ports, and evidence.');
+            $persistStage = $advanced ? 7 : 3;
 
-            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $rating): void {
+            $this->stage($scan, $persistStage, 'Persisting observed perimeter assets, open ports, and evidence.');
+
+            DB::transaction(function () use ($scan, $capture, $subdomains, $openPorts, $findings, $rating, $persistStage): void {
                 $current = Scan::lockForUpdate()->find($scan->id);
 
                 if (! $current || $current->status !== Scan::STATUS_RUNNING) {
@@ -141,7 +167,7 @@ class RunSurfaceScan implements ShouldQueue
                     'status' => Scan::STATUS_COMPLETED,
                     'finished_at' => now(),
                     'options' => array_merge($current->options ?? [], [
-                        'stage' => 4,
+                        'stage' => $persistStage + 1,
                         'assets' => $assetCount,
                         'vulnerabilities' => $vulnCount,
                         'incidents' => $incidentCount,

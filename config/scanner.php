@@ -22,13 +22,27 @@ return [
     'waf_bypass_candidates' => (int) env('SCANNER_WAF_BYPASS_CANDIDATES', 6),
     'waf_bypass_budget' => (float) env('SCANNER_WAF_BYPASS_BUDGET', 12),
 
-    // When no origin can be confirmed, hand the challenge to a headless browser
-    // and let its own JavaScript run. The clearance it earns is reused by the
-    // probes that follow. Never used against interactive challenges (captcha,
-    // Turnstile) — those simply stay blocked.
+    // When no origin can be confirmed, hand the challenge to a browser and let
+    // its own JavaScript run. The clearance it earns is reused by the probes
+    // that follow. Nothing is clicked and no captcha is solved.
+    //
+    // A managed Turnstile widget refuses a headless build but passes the same
+    // build when it owns a real window, so a headful attempt follows the
+    // headless one whenever a desktop session exists. On a server that means
+    // keeping `browser_headless` on and disabling the fallback, or running the
+    // scan under Xvfb.
     'browser_bypass' => env('SCANNER_BROWSER_BYPASS', true),
     'browser_path' => env('SCANNER_BROWSER_PATH'),
     'browser_timeout' => (float) env('SCANNER_BROWSER_TIMEOUT', 25),
+    'browser_headless' => env('SCANNER_BROWSER_HEADLESS', true),
+    'browser_headful_fallback' => env('SCANNER_BROWSER_HEADFUL_FALLBACK', true),
+    'browser_probe_timeout' => (float) env('SCANNER_BROWSER_PROBE_TIMEOUT', 12),
+
+    // When the queue connection is `sync`, scan jobs are pushed to the
+    // `database` queue and a one-shot worker is booted to process them, so
+    // the scan runs outside the HTTP request and the operator sees live
+    // progress. Set to false to fall back to synchronous execution.
+    'async_worker' => env('SCANNER_ASYNC_WORKER', true),
 
     // Read-only directory / backup-file probing. Requests are plain GETs
     // against a curated path list; nothing is written, uploaded, or deleted.

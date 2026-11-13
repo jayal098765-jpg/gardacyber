@@ -46,8 +46,14 @@ class BrowserClearance
     ];
 
     /**
-     * Load $hostname in a headless browser and return the cookies earned once
-     * the interstitial clears.
+     * Load $hostname in a browser and return the cookies earned once the
+     * interstitial clears.
+     *
+     * A managed Turnstile widget decides a headless build is automated and
+     * never hands out clearance, while the same build with a real window
+     * passes it unattended. So the headless attempt runs first and, when a
+     * display is available, a visible attempt follows with the remaining
+     * budget. Both simply let the challenge's own JavaScript run.
      *
      * @return array{cookies: array<int, array{name: string, value: string, domain: string}>, user_agent: string, status: int, body: string, title: string}|null
      */
@@ -57,6 +63,63 @@ class BrowserClearance
             return null;
         }
 
+        $modes = $this->attemptModes();
+
+        foreach ($modes as $headless) {
+            $timeout = max(5.0, (float) config('scanner.browser_timeout', 25));
+
+            if ($headless && count($modes) > 1) {
+                // Leave most of the budget for the visible attempt, which is
+                // the one that can actually clear an interactive challenge.
+                $timeout = min($timeout, max(5.0, (float) config('scanner.browser_probe_timeout', 12)));
+            }
+
+            $result = $this->attempt($hostname, $ip, $headless, $timeout);
+
+            if ($result !== null) {
+                return $result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The browser identities to try, in order. `true` means headless.
+     *
+     * @return array<int, bool>
+     */
+    public function attemptModes(): array
+    {
+        $modes = (bool) config('scanner.browser_headless', true) ? [true] : [false];
+
+        if ((bool) config('scanner.browser_headful_fallback', true) &&
+            ! in_array(false, $modes, true) &&
+            $this->canShowWindow()) {
+            $modes[] = false;
+        }
+
+        return $modes;
+    }
+
+    /**
+     * A visible browser needs a desktop session; without one the launch fails
+     * instantly, so it is not worth the attempt.
+     */
+    public function canShowWindow(): bool
+    {
+        if (PHP_OS_FAMILY === 'Linux') {
+            return trim((string) getenv('DISPLAY')) !== '';
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array{cookies: array<int, array{name: string, value: string, domain: string}>, user_agent: string, status: int, body: string, title: string}|null
+     */
+    private function attempt(string $hostname, string $ip, bool $headless, float $timeout): ?array
+    {
         $binary = $this->binary();
 
         if ($binary === null) {
@@ -73,13 +136,13 @@ class BrowserClearance
         $socket = null;
 
         try {
-            $process = $this->launch($binary, $profile, $hostname, $ip);
+            $process = $this->launch($binary, $profile, $hostname, $ip, $headless);
 
             if ($process === null) {
                 return null;
             }
 
-            $deadline = microtime(true) + max(5.0, (float) config('scanner.browser_timeout', 25));
+            $deadline = microtime(true) + $timeout;
 
             $port = $this->awaitDevToolsPort($profile, $deadline);
 
@@ -255,20 +318,19 @@ class BrowserClearance
     /**
      * @return resource|null
      */
-    private function launch(string $binary, string $profile, string $hostname, string $ip)
+    private function launch(string $binary, string $profile, string $hostname, string $ip, bool $headless)
     {
         $arguments = [
             $binary,
-            '--headless=new',
             '--remote-debugging-port=0',
             '--user-data-dir='.$profile,
             '--window-size=1280,900',
+            '--window-position=40,40',
             '--no-first-run',
             '--no-default-browser-check',
             '--disable-background-networking',
             '--disable-extensions',
             '--disable-sync',
-            '--disable-gpu',
             '--disable-dev-shm-usage',
             '--disable-blink-features=AutomationControlled',
             '--mute-audio',
@@ -276,6 +338,11 @@ class BrowserClearance
             '--no-sandbox',
             'about:blank',
         ];
+
+        if ($headless) {
+            $arguments[] = '--headless=new';
+            $arguments[] = '--disable-gpu';
+        }
 
         // Pin the hostname to the address the scanner already resolved so the
         // browser and the curl probes share the exact same path.

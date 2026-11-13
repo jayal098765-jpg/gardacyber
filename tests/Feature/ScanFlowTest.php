@@ -38,6 +38,7 @@ class ScanFlowTest extends TestCase
 
         $response->assertSessionHasNoErrors();
         $response->assertRedirect();
+        Queue::assertPushed(RunSurfaceScan::class);
 
         $this->assertDatabaseHas('asset_groups', ['root_domain' => 'training.gardacyber.test']);
         $this->assertDatabaseHas('scans', [
@@ -45,7 +46,13 @@ class ScanFlowTest extends TestCase
             'status' => 'queued',
         ]);
 
-        Queue::assertPushed(RunSurfaceScan::class);
+        $group = AssetGroup::where('user_id', $user->id)
+            ->where('root_domain', 'training.gardacyber.test')
+            ->firstOrFail();
+        $scan = Scan::where('asset_group_id', $group->id)->firstOrFail();
+
+        $this->assertSame(8, $scan->stage_count);
+        $response->assertRedirect(route('scans.show', $scan));
     }
 
     public function test_live_scan_fails_validation_when_not_in_allowed_domains(): void
@@ -152,6 +159,7 @@ class ScanFlowTest extends TestCase
         $job->handle($fakeScanner, app(SecurityRatingService::class));
 
         $this->assertSame(Scan::STATUS_COMPLETED, $scan->fresh()->status);
+        $this->assertSame(8, $scan->fresh()->options['stage']);
         $this->assertGreaterThan(0, Asset::where('asset_group_id', $group->id)->count());
         $this->assertGreaterThan(0, Finding::where('asset_group_id', $group->id)->count());
 

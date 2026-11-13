@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\RunSurfaceScan;
 use App\Models\AssetGroup;
 use App\Models\Scan;
+use App\Services\BackgroundScanStarter;
 use App\Services\ScanProgressService;
 use App\Services\SurfaceScanner;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ class ScanController extends Controller
         ]);
     }
 
-    public function store(Request $request, SurfaceScanner $scanner): RedirectResponse
+    public function store(Request $request, SurfaceScanner $scanner, BackgroundScanStarter $starter): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
             'domain' => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i'],
@@ -74,11 +75,7 @@ class ScanController extends Controller
         }
 
         $type = $request->string('type')->toString();
-        $stageCount = match ($type) {
-            Scan::TYPE_INCIDENT => 2,
-            Scan::TYPE_VULNERABILITY => 5,
-            default => 6,
-        };
+        $stageCount = $type === Scan::TYPE_INCIDENT ? 4 : 8;
 
         $scan = Scan::create([
             'asset_group_id' => $group->id,
@@ -88,10 +85,10 @@ class ScanController extends Controller
                 'single_host' => $group->single_host,
                 'stage' => 0,
             ],
-            'stage_count' => 4,
+            'stage_count' => $stageCount,
         ]);
 
-        RunSurfaceScan::dispatch($scan->id)->afterCommit();
+        $starter->ensureAsyncProcessing($scan->id);
 
         return redirect()->route('scans.show', $scan);
     }
@@ -103,13 +100,22 @@ class ScanController extends Controller
         return view('app.scans.show', ['scan' => $scan, 'initial' => $progress->progress($scan)]);
     }
 
-    public function progress(Request $request, Scan $scan, ScanProgressService $progress, SurfaceScanner $scanner): JsonResponse
+    public function progress(Request $request, Scan $scan, ScanProgressService $progress, SurfaceScanner $scanner, BackgroundScanStarter $starter): JsonResponse
     {
         abort_unless($scan->group->user_id === $request->user()->id, 404);
 
         if ($scan->status === Scan::STATUS_QUEUED) {
-            (new RunSurfaceScan($scan->id))->handle($scanner);
-            $scan->refresh();
+            if (config('queue.default') === 'sync' && (bool) config('scanner.async_worker', true)) {
+                // The worker boot may have raced the redirect; start it lazily
+                // instead of running the scan inline (which would hold this
+                // request open for the whole scan).
+                $starter->startIfNeeded();
+            } else {
+                // No background worker infrastructure: run the scan inline so
+                // a queued scan still progresses (legacy sync behavior).
+                (new RunSurfaceScan($scan->id))->handle($scanner);
+                $scan->refresh();
+            }
         }
 
         return response()->json($progress->progress($scan));

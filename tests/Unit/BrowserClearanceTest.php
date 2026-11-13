@@ -88,4 +88,38 @@ class BrowserClearanceTest extends TestCase
 
         $this->assertNull((new BrowserClearance)->solve('blocked.example.com', '104.16.0.5'));
     }
+
+    public function test_tries_a_visible_browser_after_the_headless_attempt(): void
+    {
+        // A managed Turnstile widget rejects a headless build, so a desktop
+        // session gets a second, visible attempt.
+        $this->assertSame([true, false], (new BrowserClearance)->attemptModes());
+    }
+
+    public function test_skips_the_visible_attempt_when_the_fallback_is_disabled(): void
+    {
+        Config::set('scanner.browser_headful_fallback', false);
+
+        $this->assertSame([true], (new BrowserClearance)->attemptModes());
+    }
+
+    public function test_uses_only_a_visible_browser_when_headless_mode_is_off(): void
+    {
+        Config::set('scanner.browser_headless', false);
+
+        $this->assertSame([false], (new BrowserClearance)->attemptModes());
+    }
+
+    public function test_does_not_offer_a_visible_browser_without_a_desktop_session(): void
+    {
+        $clearance = new class extends BrowserClearance
+        {
+            public function canShowWindow(): bool
+            {
+                return false;
+            }
+        };
+
+        $this->assertSame([true], $clearance->attemptModes());
+    }
 }

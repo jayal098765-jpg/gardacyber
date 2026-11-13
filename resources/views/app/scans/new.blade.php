@@ -59,6 +59,11 @@
         </svg>
         Execute Perimeter Scan
       </button>
+
+      <p style="margin-top: 12px; font-size: 13px; opacity: 0.75; text-align: center;">
+        Setelah dijalankan, kamu akan dialihkan ke konsol live yang menampilkan progres
+        tahap-demi-tahap beserta estimasi waktu tersisa.
+      </p>
     </form>
   </div>
 @endsection

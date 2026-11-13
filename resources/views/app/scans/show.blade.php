@@ -46,8 +46,8 @@
         <span class="scan-eta mono" id="scanEta">
           @if ($initial['finished'])
             Selesai
-          @elseif ($initial['percent'] > 0)
-            Estimasi sisa: ~{{ ceil(($initial['elapsed_seconds'] * (100 - $initial['percent'])) / max($initial['percent'], 1)) }}s
+          @elseif ($initial['eta_seconds'] > 0)
+            Estimasi sisa: ~{{ $initial['eta_seconds'] >= 60 ? intdiv($initial['eta_seconds'], 60).'m '.($initial['eta_seconds'] % 60).'s' : $initial['eta_seconds'].'s' }}
           @else
             Menyelesaikan…
           @endif
@@ -139,13 +139,19 @@
       '</div>';
   }
 
+  function humanize(sec) {
+    sec = Math.max(0, Math.round(Number(sec) || 0));
+    if (sec < 60) return '~' + sec + 's';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return '~' + m + 'm ' + (s ? s + 's' : '');
+  }
+
   function formatEta(data) {
-    if (data.finished) return '';
-    const p = Number(data.percent) || 0;
-    const e = Number(data.elapsed_seconds) || 0;
-    if (p <= 0) return 'Menyelesaikan…';
-    const remaining = Math.max(1, Math.round(e * (100 - p) / p));
-    return 'Estimasi sisa: ~' + remaining + 's';
+    if (data.finished) return 'Selesai';
+    const eta = Number(data.eta_seconds);
+    if (isFinite(eta) && eta > 0) return 'Estimasi sisa: ' + humanize(eta);
+    return 'Menyelesaikan…';
   }
 
   function setStatus(value) {
