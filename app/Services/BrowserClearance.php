@@ -136,7 +136,12 @@ class BrowserClearance
         $socket = null;
 
         try {
-            $process = $this->launch($binary, $profile, $hostname, $ip, $headless);
+            // Headful: launch directly at the target URL so the first tab is
+            // a visible, focused document running the challenge as a visitor
+            // would (the verified-working path). Headless keeps about:blank
+            // so the user-agent override is applied before any navigation.
+            $launchUrl = $headless ? 'about:blank' : 'https://'.$hostname.'/';
+            $process = $this->launch($binary, $profile, $hostname, $ip, $headless, $launchUrl);
 
             if ($process === null) {
                 return null;
@@ -152,13 +157,21 @@ class BrowserClearance
 
             $userAgent = $this->browserUserAgent($port);
 
-            $target = $this->openTarget($port);
+            if ($headless) {
+                return $this->clearViaCdp($port, $hostname, $userAgent, $deadline);
+            }
+
+            // Headful: keep the first tab untouched — attaching to it while
+            // the challenge runs is what makes managed Turnstile refuse.
+            // Watch its state through the DevTools HTTP endpoint instead, and
+            // only connect once the interstitial has cleared.
+            $target = $this->waitForClearance($port, $hostname, $deadline);
 
             if ($target === null) {
                 return null;
             }
 
-            $socket = $this->connect($target, $deadline);
+            $socket = $this->connect($target, min($deadline, microtime(true) + 8));
 
             if ($socket === null) {
                 return null;
@@ -166,7 +179,7 @@ class BrowserClearance
 
             $this->messageId = 0;
 
-            $page = $this->navigate($socket, $hostname, $userAgent, $deadline);
+            $page = $this->readCurrentPage($socket, $hostname, $deadline);
 
             if ($page === null) {
                 return null;
@@ -190,6 +203,150 @@ class BrowserClearance
 
             $this->terminate($process, $profile);
         }
+    }
+
+    /**
+     * Run the challenge in the attached CDP flow (used for headless builds,
+     * where the page must be navigated after the user-agent override).
+     *
+     * @return array{cookies: array<int, array{name: string, value: string, domain: string}>, user_agent: string, status: int, body: string, title: string}|null
+     */
+    private function clearViaCdp(int $port, string $hostname, string $userAgent, float $deadline): ?array
+    {
+        while (microtime(true) < $deadline) {
+            $target = $this->openTarget($port);
+
+            if ($target === null) {
+                usleep(300000);
+
+                continue;
+            }
+
+            $socket = $this->connect($target, min($deadline, microtime(true) + 5));
+
+            if ($socket === null) {
+                usleep(300000);
+
+                continue;
+            }
+
+            $this->messageId = 0;
+
+            $page = $this->navigate($socket, $hostname, $userAgent, $deadline);
+
+            if ($page !== null) {
+                $cookies = $this->relevantCookies($this->fetchCookies($socket, $deadline), $hostname);
+                @fclose($socket);
+
+                return [
+                    'cookies' => $cookies,
+                    'user_agent' => $userAgent,
+                    'status' => $page['status'],
+                    'body' => $page['body'],
+                    'title' => $page['title'],
+                ];
+            }
+
+            @fclose($socket);
+            usleep(400000);
+        }
+
+        return null;
+    }
+
+    /**
+     * Watch the first tab through the DevTools HTTP endpoint until the edge
+     * interstitial clears, without ever attaching to it (attaching is what
+     * makes a managed challenge refuse). Returns the cleared target's
+     * WebSocket debugger URL.
+     */
+    private function waitForClearance(int $port, string $hostname, float $deadline): ?string
+    {
+        $hostname = strtolower($hostname);
+
+        while (microtime(true) < $deadline) {
+            $targets = $this->cdpHttp($port, 'GET', '/json/list');
+
+            if (is_array($targets)) {
+                foreach ($targets as $target) {
+                    if ((string) ($target['type'] ?? '') !== 'page') {
+                        continue;
+                    }
+
+                    $url = strtolower((string) ($target['url'] ?? ''));
+                    $title = trim((string) ($target['title'] ?? ''));
+                    $ws = (string) ($target['webSocketDebuggerUrl'] ?? '');
+
+                    if (! str_starts_with($url, 'https://'.$hostname) && ! str_starts_with($url, 'http://'.$hostname)) {
+                        continue;
+                    }
+
+                    if ($title === '' || $this->isChallengePage($title) || $ws === '') {
+                        continue;
+                    }
+
+                    return $ws;
+                }
+            }
+
+            usleep(700000);
+        }
+
+        return null;
+    }
+
+    /**
+     * Attach to an already-cleared page and read its current document. Does
+     * not navigate or re-identify the browser; the clearance cookies are bound
+     * to the identity the page already used.
+     *
+     * @param  resource  $socket
+     * @return array{status: int, body: string, title: string}|null
+     */
+    private function readCurrentPage($socket, string $hostname, float $deadline): ?array
+    {
+        $expression = <<<'JS'
+        (() => {
+          const entry = (performance.getEntriesByType('navigation')[0] || {});
+          return JSON.stringify({
+            ready: document.readyState,
+            title: document.title,
+            url: location.href,
+            status: entry.responseStatus || 0,
+            html: (document.documentElement ? document.documentElement.outerHTML : '')
+          });
+        })()
+        JS;
+
+        for ($i = 0; $i < 6 && microtime(true) < $deadline; $i++) {
+            $state = $this->evaluate($socket, $expression, $deadline);
+
+            if ($state === null) {
+                usleep(400000);
+
+                continue;
+            }
+
+            $html = substr((string) ($state['html'] ?? ''), 0, 1048576);
+            $url = (string) ($state['url'] ?? '');
+            $status = (int) ($state['status'] ?? 0);
+
+            if ($html !== ''
+                && ($state['ready'] ?? '') === 'complete'
+                && ($status > 0 || strlen($html) >= 1000)
+                && ! $this->isChallengePage($html)
+                && ! str_contains($html, 'main-frame-error')
+                && (str_starts_with($url, 'https://') || str_starts_with($url, 'http://'))
+            ) {
+                return [
+                    'status' => $status ?: 200,
+                    'body' => $html,
+                    'title' => (string) ($state['title'] ?? ''),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -318,7 +475,7 @@ class BrowserClearance
     /**
      * @return resource|null
      */
-    private function launch(string $binary, string $profile, string $hostname, string $ip, bool $headless)
+    private function launch(string $binary, string $profile, string $hostname, string $ip, bool $headless, string $url = 'about:blank')
     {
         $arguments = [
             $binary,
@@ -336,7 +493,7 @@ class BrowserClearance
             '--mute-audio',
             '--no-proxy-server',
             '--no-sandbox',
-            'about:blank',
+            $url,
         ];
 
         if ($headless) {
@@ -405,6 +562,21 @@ class BrowserClearance
      */
     private function openTarget(int $port): ?string
     {
+        // Prefer the first existing page target: the browser is launched with
+        // the scanned URL already opening, so this tab is foreground and the
+        // challenge runs as it would for a real visitor. Creating a new tab
+        // via /json/new leaves that document hidden/unfocused, which managed
+        // Turnstile widgets treat as automated.
+        $targets = $this->cdpHttp($port, 'GET', '/json/list');
+
+        foreach ((array) ($targets ?? []) as $target) {
+            $type = (string) ($target['type'] ?? '');
+
+            if ($type === 'page' && ! empty($target['webSocketDebuggerUrl'])) {
+                return (string) $target['webSocketDebuggerUrl'];
+            }
+        }
+
         $target = $this->cdpHttp($port, 'PUT', '/json/new?about:blank')
             ?? $this->cdpHttp($port, 'GET', '/json/new?about:blank');
 
@@ -428,10 +600,28 @@ class BrowserClearance
 
         @fwrite($socket, $method.' '.$path." HTTP/1.1\r\nHost: 127.0.0.1:".$port."\r\nAccept: application/json\r\nConnection: close\r\n\r\n");
 
-        $raw = stream_get_contents($socket);
+        $raw = '';
+        $started = microtime(true);
+
+        while (microtime(true) - $started < 3) {
+            $chunk = @fread($socket, 16384);
+
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+
+            $raw .= $chunk;
+
+            // The DevTools HTTP endpoint does not always close the connection
+            // promptly, so stop as soon as the buffered body is complete JSON.
+            if ($this->hasCompleteJson($raw)) {
+                break;
+            }
+        }
+
         @fclose($socket);
 
-        if (! is_string($raw) || $raw === '') {
+        if ($raw === '') {
             return null;
         }
 
@@ -457,6 +647,28 @@ class BrowserClearance
         $decoded = json_decode(substr($body, $start), true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * True when the buffered HTTP response already contains a complete JSON
+     * document (object or array) after its header block.
+     */
+    private function hasCompleteJson(string $raw): bool
+    {
+        $split = strpos($raw, "\r\n\r\n");
+
+        if ($split === false) {
+            return false;
+        }
+
+        $body = substr($raw, $split + 4);
+        $trimmed = ltrim($body);
+
+        if ($trimmed === '' || ! in_array($trimmed[0], ['{', '['], true)) {
+            return false;
+        }
+
+        return json_decode($trimmed, true) !== null;
     }
 
     /**
@@ -534,10 +746,23 @@ class BrowserClearance
             'acceptLanguage' => 'en-US,en;q=0.9',
         ], $deadline);
 
-        // Fire and forget: this reply only arrives once the navigation
-        // commits, so an origin that stalls on connect would otherwise block
-        // the entire handoff. Progress is observed through Runtime.evaluate.
-        $this->send($socket, 'Page.navigate', ['url' => 'https://'.$hostname.'/']);
+        // The tab is the foreground window the browser opened at launch.
+        // Bring it to front so a managed Turnstile runs as it would for a
+        // real visitor instead of treating the document as backgrounded.
+        $this->cdp($socket, 'Page.bringToFront', [], $deadline);
+
+        // The launch already pointed the first tab at the target URL; only
+        // re-navigate when the document is not there yet (e.g. it loaded
+        // about:blank or an earlier failed page).
+        $probe = $this->evaluate($socket, 'JSON.stringify({ href: location.href })', $deadline);
+        $currentUrl = strtolower((string) ($probe['href'] ?? ''));
+
+        if ($currentUrl === '' || ! str_starts_with($currentUrl, 'https://'.strtolower($hostname))) {
+            // Fire and forget: this reply only arrives once the navigation
+            // commits, so an origin that stalls on connect would otherwise block
+            // the entire handoff. Progress is observed through Runtime.evaluate.
+            $this->send($socket, 'Page.navigate', ['url' => 'https://'.$hostname.'/']);
+        }
 
         $expression = <<<'JS'
         (() => {
@@ -552,17 +777,28 @@ class BrowserClearance
         })()
         JS;
 
+        $deadEvaluations = 0;
+
         while (microtime(true) < $deadline) {
             usleep(600000);
 
             $state = $this->evaluate($socket, $expression, $deadline);
 
             if ($state === null) {
+                // A dead CDP session yields no replies; hand back to the
+                // caller so it can reconnect instead of burning the budget.
+                if (++$deadEvaluations >= 5) {
+                    return null;
+                }
+
                 continue;
             }
 
+            $deadEvaluations = 0;
+
             $html = substr((string) ($state['html'] ?? ''), 0, 1048576);
             $url = (string) ($state['url'] ?? '');
+            $status = (int) ($state['status'] ?? 0);
 
             // Before the navigation commits the document is still about:blank;
             // capturing that would report an empty page as the application.
@@ -571,6 +807,12 @@ class BrowserClearance
             }
 
             if (! str_starts_with($url, 'https://') && ! str_starts_with($url, 'http://')) {
+                continue;
+            }
+
+            // Reject placeholder documents (about:blank remnants, tiny error
+            // shells) that carry no response status and no real content.
+            if ($status === 0 && strlen($html) < 1000) {
                 continue;
             }
 
@@ -585,7 +827,7 @@ class BrowserClearance
             }
 
             return [
-                'status' => (int) ($state['status'] ?? 0) ?: 200,
+                'status' => $status ?: 200,
                 'body' => $html,
                 'title' => (string) ($state['title'] ?? ''),
             ];

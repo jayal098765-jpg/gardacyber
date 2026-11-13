@@ -23,6 +23,12 @@
         <span class="pill {{ $finding->status === 'open' ? 'warn' : ($finding->status === 'resolved' ? 'ok' : 'pill-status') }}">
           {{ $finding->status === 'false_positive' ? 'False Positive' : ucfirst($finding->status) }}
         </span>
+        @if ($finding->cve_id)
+          <a href="https://nvd.nist.gov/vuln/detail/{{ $finding->cve_id }}" target="_blank" rel="noopener" class="badge cve-badge">{{ $finding->cve_id }}</a>
+        @endif
+        @if ($finding->owasp && $owaspLabels->has($finding->owasp))
+          <span class="badge owasp-badge">{{ $finding->owasp }} — {{ $owaspLabels->get($finding->owasp) }}</span>
+        @endif
       </div>
       <h1 style="font-size: 24px; font-weight: 700; line-height: 1.3;">{{ $finding->title }}</h1>
       <p class="mono" style="font-size: 14px; margin-top: 6px; color: var(--fg-muted, #94a3b8);">
@@ -218,6 +224,18 @@
             <dt style="color: var(--fg-subtle, #64748b); font-size: 11px; text-transform: uppercase;">Category</dt>
             <dd class="mono" style="margin: 2px 0 0; color: var(--fg-default, #fff);">{{ $finding->category }}</dd>
           </div>
+          @if ($finding->cve_id)
+            <div>
+              <dt style="color: var(--fg-subtle, #64748b); font-size: 11px; text-transform: uppercase;">CVE Reference</dt>
+              <dd style="margin: 2px 0 0;"><a class="mono" href="https://nvd.nist.gov/vuln/detail/{{ $finding->cve_id }}" target="_blank" rel="noopener" style="color: var(--accent, #00d2ff);">{{ $finding->cve_id }}</a></dd>
+            </div>
+          @endif
+          @if ($finding->owasp && $owaspLabels->has($finding->owasp))
+            <div>
+              <dt style="color: var(--fg-subtle, #64748b); font-size: 11px; text-transform: uppercase;">OWASP Top 10</dt>
+              <dd style="margin: 2px 0 0; color: var(--fg-default, #fff);">{{ $finding->owasp }} — {{ $owaspLabels->get($finding->owasp) }}</dd>
+            </div>
+          @endif
           <div>
             <dt style="color: var(--fg-subtle, #64748b); font-size: 11px; text-transform: uppercase;">Asset Hostname</dt>
             <dd class="mono" style="margin: 2px 0 0; color: var(--fg-default, #fff);">{{ $finding->asset?->hostname ?: 'Root domain' }}</dd>

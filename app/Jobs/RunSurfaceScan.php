@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\Finding;
 use App\Models\PostureSnapshot;
 use App\Models\Scan;
+use App\Services\CveMatcher;
 use App\Services\SecurityRatingService;
 use App\Services\SurfaceScanner;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,6 +58,8 @@ class RunSurfaceScan implements ShouldQueue
 
             $findings = $scanner->analyze($capture, $scan->type);
             $findings = [...$findings, ...$scanner->wafFindings($capture, $scan->group->root_domain)];
+
+            $findings = [...$findings, ...app(CveMatcher::class)->buildFindingsForCapture($capture)];
 
             if ($advanced) {
                 $this->stage($scan, 3, 'Auditing security headers, sensitive exposures, and visible compromise signatures.');

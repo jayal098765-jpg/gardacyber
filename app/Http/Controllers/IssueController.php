@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Finding;
+use App\Models\OwaspCategory;
 use App\Services\AiService;
 use App\Services\RemediationAdvisor;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +33,7 @@ class IssueController extends Controller
         return view('app.findings.show', [
             'finding' => $finding,
             'guide' => $advisor->guideFor($finding),
+            'owaspLabels' => OwaspCategory::labels(),
         ]);
     }
 

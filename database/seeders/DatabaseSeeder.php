@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(OwaspCategorySeeder::class);
+
         if (! app()->environment('local') && ! env('GARDA_SEED_FORCE')) {
             return;
         }

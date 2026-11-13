@@ -41,9 +41,21 @@
         @forelse ($findings as $finding)
           <tr>
             <td><span class="badge sev-{{ $finding->severity }}"><span class="dot"></span>{{ ucfirst($finding->severity) }}</span></td>
-            <td><a href="{{ route('findings.show', $finding) }}" style="color: inherit; text-decoration: underline; text-underline-offset: 3px;">{{ $finding->title }}</a></td>
+            <td>
+              <a href="{{ route('findings.show', $finding) }}" style="color: inherit; text-decoration: underline; text-underline-offset: 3px;">{{ $finding->title }}</a>
+              @if ($finding->cve_id)
+                <div>
+                  <a href="https://nvd.nist.gov/vuln/detail/{{ $finding->cve_id }}" target="_blank" rel="noopener" class="badge cve-badge">{{ $finding->cve_id }}</a>
+                </div>
+              @endif
+            </td>
             <td class="mono">{{ $finding->asset?->hostname ?: $finding->group->root_domain }}</td>
-            <td>{{ $finding->category }}</td>
+            <td>
+              {{ $finding->category }}
+              @if ($finding->owasp && $owaspLabels->has($finding->owasp))
+                <div><span class="badge owasp-badge">{{ $finding->owasp }} — {{ $owaspLabels->get($finding->owasp) }}</span></div>
+              @endif
+            </td>
             <td class="mono"><a href="{{ route('groups.show', $finding->group) }}">{{ $finding->group->root_domain }}</a></td>
             <td>{{ $finding->last_seen_at?->diffForHumans() }}</td>
           </tr>
