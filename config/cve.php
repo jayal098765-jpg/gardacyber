@@ -25,4 +25,9 @@ return [
 
     // Cap on how many CVEs a single generated finding may list in its evidence.
     'max_cves_per_finding' => (int) env('CVE_MAX_PER_FINDING', 25),
+
+    // When enabled, the scheduler bootstraps the full CVE database on the
+    // server (every 5 minutes until at least 1000 rows exist), so a fresh
+    // deployment populates itself without manual SSH intervention.
+    'bootstrap_on_boot' => (bool) env('CVE_BOOTSTRAP_ON_BOOT', false),
 ];

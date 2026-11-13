@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Cve;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -22,4 +23,14 @@ Schedule::command('cve:sync --kev')
     ->withoutOverlapping()
     ->onFailure(function () {
         report(new RuntimeException('Scheduled KEV refresh failed.'));
+    });
+
+// Fresh-deployment bootstrap: fill the local CVE database automatically
+// until it has enough data, then the weekly full sync takes over.
+Schedule::command('cve:sync --all --kev')
+    ->everyFiveMinutes()
+    ->when(fn (): bool => config('cve.bootstrap_on_boot', false) && Cve::query()->count() < 1000)
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        report(new RuntimeException('CVE bootstrap sync failed.'));
     });
