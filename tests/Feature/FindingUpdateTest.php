@@ -73,7 +73,7 @@ class FindingUpdateTest extends TestCase
 
         $response->assertOk()
             ->assertSee('HSTS header missing')
-            ->assertSee('Remediation &amp; Hardening Playbook', false)
+            ->assertSee('Playbook Remediasi &amp; Hardening', false)
             ->assertSee('Strict-Transport-Security');
     }
 

@@ -46,7 +46,7 @@
       {{-- EVIDENCE CARD --}}
       <div class="panel" style="margin-bottom: 20px;">
         <div class="panel-head">
-          <span class="panel-title">Technical Observation &amp; Evidence</span>
+          <span class="panel-title">Observasi Teknis &amp; Bukti</span>
           <span class="panel-total mono">{{ $finding->category }}</span>
         </div>
 
@@ -58,7 +58,7 @@
 
         <div style="background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 8px; padding: 14px;">
           <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-subtle, #64748b); margin-bottom: 8px;">
-            Raw Signal Fingerprint
+            Fingerprint Sinyal Mentah
           </div>
           <pre class="mono" style="margin: 0; font-size: 12px; line-height: 1.5; color: #38bdf8; white-space: pre-wrap; word-break: break-all;">{{ $finding->evidence ?: 'No raw text evidence recorded for this finding.' }}</pre>
         </div>
@@ -133,22 +133,22 @@
       {{-- REMEDIATION PLAYBOOK --}}
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-title">Remediation &amp; Hardening Playbook</span>
+          <span class="panel-title">Playbook Remediasi &amp; Hardening</span>
           <span class="pill ok" style="font-size: 11px;">GardaCyber Guidance</span>
         </div>
 
         <div style="margin-bottom: 16px;">
-          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: var(--fg-default, #f1f5f9);">Overview</h4>
+          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: var(--fg-default, #f1f5f9);">Ikhtisar</h4>
           <p style="font-size: 13.5px; color: var(--fg-muted, #94a3b8); margin: 0; line-height: 1.5;">{{ $guide['summary'] }}</p>
         </div>
 
         <div style="margin-bottom: 16px;">
-          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: var(--fg-default, #f1f5f9);">Risk &amp; Impact Analysis</h4>
+          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: var(--fg-default, #f1f5f9);">Analisis Risiko &amp; Dampak</h4>
           <p style="font-size: 13.5px; color: var(--fg-muted, #94a3b8); margin: 0; line-height: 1.5;">{{ $guide['impact'] }}</p>
         </div>
 
         <div style="margin-bottom: 18px;">
-          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 8px; color: var(--fg-default, #f1f5f9);">Actionable Step-by-Step Remediation</h4>
+          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 8px; color: var(--fg-default, #f1f5f9);">Langkah Remediasi Bertahap yang Aksi</h4>
           <ol style="margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--fg-muted, #94a3b8); line-height: 1.6;">
             @foreach ($guide['steps'] as $step)
               <li style="margin-bottom: 6px;">{{ $step }}</li>
@@ -172,7 +172,7 @@
         @endif
 
         <div>
-          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 4px; color: var(--fg-default, #f1f5f9);">Verification Standard</h4>
+          <h4 style="font-size: 13.5px; font-weight: 600; margin-bottom: 4px; color: var(--fg-default, #f1f5f9);">Standar Verifikasi</h4>
           <p style="font-size: 13px; color: var(--fg-subtle, #64748b); margin: 0;">{{ $guide['verification'] }}</p>
         </div>
       </div>
@@ -182,7 +182,7 @@
     <div>
       <div class="panel" style="margin-bottom: 20px;">
         <div class="panel-head">
-          <span class="panel-title">Triage Decision</span>
+          <span class="panel-title">Keputusan Triage</span>
         </div>
 
         <form method="POST" action="{{ route('findings.update', $finding) }}" style="display: flex; flex-direction: column; gap: 10px;">
@@ -191,14 +191,14 @@
 
           @if ($finding->status === 'open')
             <button class="btn btn-primary" type="submit" name="status" value="resolved" style="width: 100%; justify-content: center;">
-              Mark as Resolved
+              Tandai Teratasi
             </button>
             <button class="btn btn-ghost" type="submit" name="status" value="false_positive" style="width: 100%; justify-content: center;">
-              Mark as False Positive
+              Tandai False Positive
             </button>
           @else
             <button class="btn btn-primary" type="submit" name="status" value="open" style="width: 100%; justify-content: center;">
-              Reopen Finding
+              Buka Kembali Temuan
             </button>
           @endif
         </form>
@@ -209,7 +209,7 @@
           @csrf
           @method('DELETE')
           <button class="btn btn-ghost danger btn-sm" type="submit" style="width: 100%; justify-content: center;">
-            Delete Record
+            Hapus Rekam
           </button>
         </form>
       </div>

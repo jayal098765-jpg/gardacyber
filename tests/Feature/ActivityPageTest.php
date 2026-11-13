@@ -48,12 +48,12 @@ class ActivityPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('oplog.example.invalid');
-        $response->assertSee('Completed');
-        $response->assertSee('Running');
-        $response->assertSee('Queued');
-        $response->assertSee('Failed');
-        $response->assertSee('Stopped');
-        $response->assertSee('2 vuln · 1 incident');
+        $response->assertSee('Selesai');
+        $response->assertSee('Berjalan');
+        $response->assertSee('Antre');
+        $response->assertSee('Gagal');
+        $response->assertSee('Dihentikan');
+        $response->assertSee('2 vuln · 1 insiden');
     }
 
     public function test_activity_page_lists_newest_scan_first(): void
@@ -67,8 +67,8 @@ class ActivityPageTest extends TestCase
         // The running scan (created last) appears before the older completed one.
         $html = $response->getContent();
         $this->assertLessThan(
-            strpos($html, 'Running'),
-            strpos($html, 'Completed')
+            strpos($html, 'Berjalan'),
+            strpos($html, 'Selesai')
         );
     }
 

@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Activity')
+@section('title', 'Aktivitas')
 
 @section('content')
   <div class="page-head row">
     <div>
-      <h1>Activity</h1>
-      <p>The running log of every scan: queued, live, or finished.</p>
+      <h1>Aktivitas</h1>
+      <p>Log berjalan dari setiap scan: antre, berjalan, atau selesai.</p>
     </div>
   </div>
 
@@ -16,7 +16,7 @@
 
   <div class="table-wrap">
     <table class="tbl">
-      <thead><tr><th>Scan</th><th>Group</th><th>Status</th><th>Findings</th><th>Duration</th><th>Started</th><th>Finished</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Scan</th><th>Grup</th><th>Status</th><th>Temuan</th><th>Durasi</th><th>Dimulai</th><th>Selesai</th><th>Tindakan</th></tr></thead>
       <tbody>
         @forelse ($scans as $scan)
           @php
@@ -29,25 +29,34 @@
             } elseif ($scan->stopped_at && $scan->started_at) {
                 $duration = $scan->stopped_at->diffInSeconds($scan->started_at);
             }
+
+            $statusLabel = match ($scan->status) {
+                'queued' => 'Antre',
+                'running' => 'Berjalan',
+                'completed' => 'Selesai',
+                'failed' => 'Gagal',
+                'stopped' => 'Dihentikan',
+                default => ucfirst($scan->status),
+            };
           @endphp
           <tr>
             <td>
               <span class="mode-badge">{{ $scan->modeBadge() }}</span>
-              <a href="{{ route('scans.show', $scan) }}" class="view-link">view →</a>
+              <a href="{{ route('scans.show', $scan) }}" class="view-link">lihat →</a>
             </td>
             <td class="mono"><a href="{{ route('groups.show', $scan->group) }}">{{ $scan->group->root_domain }}</a></td>
-            <td><span class="pill status-{{ $scan->status }}">{{ ucfirst($scan->status) }}</span></td>
+            <td><span class="pill status-{{ $scan->status }}">{{ $statusLabel }}</span></td>
             <td class="mono">
               @if ($vulnCount || $incidentCount)
-                {{ $vulnCount }} vuln · {{ $incidentCount }} incident
+                {{ $vulnCount }} vuln · {{ $incidentCount }} insiden
               @else
                 <span class="muted">—</span>
               @endif
             </td>
             <td class="mono">
               @if ($duration !== null)
-                @if ($duration < 60){{ $duration }}s
-                @else{{ intdiv($duration, 60) }}m {{ $duration % 60 }}s
+                @if ($duration < 60){{ $duration }} dtk
+                @else{{ intdiv($duration, 60) }}m {{ $duration % 60 }} dtk
                 @endif
               @else
                 <span class="muted">—</span>
@@ -57,7 +66,7 @@
               @if ($scan->started_at)
                 {{ $scan->started_at->diffForHumans() }}
               @else
-                <span class="muted">queued</span>
+                <span class="muted">antre</span>
               @endif
             </td>
             <td>{{ $scan->finished_at?->diffForHumans() ?? '—' }}</td>
@@ -66,19 +75,19 @@
                 @if ($scan->isLive())
                   <form method="POST" action="{{ route('scans.stop', $scan) }}">
                     @csrf
-                    <button class="btn btn-ghost btn-sm" type="submit">Stop</button>
+                    <button class="btn btn-ghost btn-sm" type="submit">Hentikan</button>
                   </form>
                 @endif
-                <form method="POST" action="{{ route('activity.scans.destroy', $scan) }}" onsubmit="return confirm('Delete this scan record?')">
+                <form method="POST" action="{{ route('activity.scans.destroy', $scan) }}" onsubmit="return confirm('Hapus catatan scan ini?')">
                   @csrf
                   @method('DELETE')
-                  <button class="btn btn-ghost btn-sm danger" type="submit">Delete</button>
+                  <button class="btn btn-ghost btn-sm danger" type="submit">Hapus</button>
                 </form>
               </div>
             </td>
           </tr>
         @empty
-          <tr><td colspan="8" class="muted">No scans yet. <a href="{{ route('scans.new') }}">Start one</a>.</td></tr>
+          <tr><td colspan="8" class="muted">Belum ada scan. <a href="{{ route('scans.new') }}">Mulai satu</a>.</td></tr>
         @endforelse
       </tbody>
     </table>

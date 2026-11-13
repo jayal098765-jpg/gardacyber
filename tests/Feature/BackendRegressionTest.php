@@ -107,7 +107,7 @@ class BackendRegressionTest extends TestCase
         $this->actingAs($user)
             ->get(route('groups.storyboard', $group))
             ->assertOk()
-            ->assertSee('Attack Storyboard')
+            ->assertSee('Papan Cerita Serangan')
             ->assertSee('Reconnaissance')
             ->assertSee('Compromise')
             ->assertSee('Open database port exposed')

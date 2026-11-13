@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Dasbor')
 
 @php
   $sevRank = ['critical' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
@@ -11,9 +11,9 @@
       : $worstIncidentSev;
   $bannerClass = match ($worstOverall) { 'critical' => 'banner-critical', 'high' => 'banner-high', default => 'banner-clear' };
   $bannerText = match ($worstOverall) {
-      'critical' => ($openVulns->where('severity','critical')->count() + $openIncidents->where('severity','critical')->count()).' critical exposures need attention',
-      'high' => ($openVulns->where('severity','high')->count() + $openIncidents->where('severity','high')->count()).' high-severity exposures need attention',
-      default => 'No critical or high-severity findings open',
+      'critical' => ($openVulns->where('severity','critical')->count() + $openIncidents->where('severity','critical')->count()).' eksposur kritis butuh perhatian',
+      'high' => ($openVulns->where('severity','high')->count() + $openIncidents->where('severity','high')->count()).' eksposur severity tinggi butuh perhatian',
+      default => 'Tidak ada temuan kritis atau severity tinggi yang terbuka',
   };
   $vulnBySev = $openVulns->groupBy('severity')->map->count();
   $incidentBySev = $openIncidents->groupBy('severity')->map->count();
@@ -22,8 +22,8 @@
 @section('content')
   <div class="page-head row">
     <div>
-      <h1>Attack Surface Overview</h1>
-      <p>Your perimeter at a glance — assets, exposures, and live compromise signals.</p>
+      <h1>Ikhtisar Permukaan Serangan</h1>
+      <p>Perimetermu dalam sekali lihat — aset, eksposur, dan sinyal kompromi langsung.</p>
     </div>
     <div class="page-actions">
       @if ($groups->isNotEmpty())
@@ -37,42 +37,42 @@
     </div>
   </div>
 
-  <a class="banner {{ $bannerClass }}" href="{{ route('issues.index') }}" aria-label="{{ $bannerText }} — review now">
+  <a class="banner {{ $bannerClass }}" href="{{ route('issues.index') }}" aria-label="{{ $bannerText }} — tinjau sekarang">
     <span>{{ $bannerText }}</span>
-    <span class="banner-action">review now <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+    <span class="banner-action">tinjau sekarang <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
   </a>
 
   <div class="kpi-row">
     <a class="kpi kpi-link" href="{{ route('groups.index') }}">
       <div class="k-header">
-        <span class="k-label">Total Assets</span>
+        <span class="k-label">Total Aset</span>
         <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
       </div>
       <div class="k-value" data-count="{{ $totalAssets }}">{{ number_format($totalAssets) }}</div>
       <div class="k-footer">
-        <span class="k-sub">perimeter hosts</span>
+        <span class="k-sub">host perimeter</span>
         <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
       </div>
     </a>
     <a class="kpi kpi-link" href="{{ route('groups.index') }}">
       <div class="k-header">
-        <span class="k-label">Asset Groups</span>
+        <span class="k-label">Grup Aset</span>
         <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></span>
       </div>
       <div class="k-value" data-count="{{ $groups->count() }}">{{ $groups->count() }}</div>
       <div class="k-footer">
-        <span class="k-sub">configured domains</span>
+        <span class="k-sub">domain terkonfigurasi</span>
         <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
       </div>
     </a>
     <a class="kpi kpi-link {{ $openVulns->isNotEmpty() ? 'sev-'.($worstVulnSev ?? 'low') : 'sev-clean' }}" href="{{ route('vulnerabilities.index') }}">
       <div class="k-header">
-        <span class="k-label">Open Vulnerabilities</span>
+        <span class="k-label">Vulnerabilitas Terbuka</span>
         <span class="k-icon k-icon-alert"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
       </div>
       <div class="k-value" data-count="{{ $openVulns->count() }}">{{ $openVulns->count() }}</div>
       <div class="k-footer">
-        <span class="k-sub">{{ $worstVulnSev ? $openVulns->where('severity',$worstVulnSev)->count().' '.$worstVulnSev : 'nothing open' }}</span>
+        <span class="k-sub">{{ $worstVulnSev ? $openVulns->where('severity',$worstVulnSev)->count().' '.$worstVulnSev : 'tidak ada yang terbuka' }}</span>
         <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
       </div>
     </a>
@@ -83,18 +83,18 @@
       </div>
       <div class="k-value" data-count="{{ $openIncidents->count() }}">{{ $openIncidents->count() }}</div>
       <div class="k-footer">
-        <span class="k-sub">{{ $worstIncidentSev ? $openIncidents->where('severity',$worstIncidentSev)->count().' '.$worstIncidentSev : 'nothing open' }}</span>
+        <span class="k-sub">{{ $worstIncidentSev ? $openIncidents->where('severity',$worstIncidentSev)->count().' '.$worstIncidentSev : 'tidak ada yang terbuka' }}</span>
         <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
       </div>
     </a>
     <a class="kpi kpi-link" href="{{ route('activity.index') }}">
       <div class="k-header">
-        <span class="k-label">Scans This Week</span>
+        <span class="k-label">Scan Minggu Ini</span>
         <span class="k-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
       </div>
       <div class="k-value" data-count="{{ $scansThisWeek }}">{{ $scansThisWeek }}</div>
       <div class="k-footer">
-        <span class="k-sub">last 7 days</span>
+        <span class="k-sub">7 hari terakhir</span>
         <span class="k-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
       </div>
     </a>
@@ -109,8 +109,8 @@
   <div class="dash-grid posture-row">
     <div class="panel exposure-panel level-{{ $expLevel }}">
       <div class="panel-head">
-        <span class="panel-title">Exposure Index</span>
-        <span class="workspace-badge">workspace-wide</span>
+        <span class="panel-title">Indeks Eksposur</span>
+        <span class="workspace-badge">seluruh workspace</span>
       </div>
       <div class="exposure-body">
         <div class="exposure-gauge">
@@ -130,7 +130,7 @@
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Posture Trend</span>
+        <span class="panel-title">Tren Postur</span>
       </div>
       @if ($postureHistory->isEmpty())
         <p class="muted">Belum ada riwayat posture. Jalankan scan untuk mulai melacak tren keamananmu.</p>
@@ -143,8 +143,8 @@
           <div class="trend-axis"></div>
         </div>
         <div class="trend-legend">
-          <span class="trend-key"><span class="key-dot key-vuln"></span>Vulnerability</span>
-          <span class="trend-key"><span class="key-dot key-incident"></span>Incident</span>
+          <span class="trend-key"><span class="key-dot key-vuln"></span>Vulnerabilitas</span>
+          <span class="trend-key"><span class="key-dot key-incident"></span>Insiden</span>
         </div>
         <div class="trend-range mono">
           {{ $postureHistory->first()['date'] }} → {{ $postureHistory->last()['date'] }}
@@ -156,7 +156,7 @@
   <div class="dash-grid">
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Open Vulnerabilities</span>
+        <span class="panel-title">Vulnerabilitas Terbuka</span>
         <span class="panel-total">{{ $openVulns->count() }} total</span>
       </div>
       <div class="sev-bars">
@@ -174,7 +174,7 @@
       <div class="panel-sep"></div>
 
       <div class="panel-head">
-        <span class="panel-title">Open Incidents</span>
+        <span class="panel-title">Insiden Terbuka</span>
         <span class="panel-total">{{ $openIncidents->count() }} total</span>
       </div>
       <div class="sev-bars">
@@ -192,33 +192,33 @@
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Security Rating · org-wide</span>
+        <span class="panel-title">Rating Keamanan · seluruh organisasi</span>
       </div>
       <div class="grade-row">
         <div class="grade-card">
           <div class="grade-badge badge-{{ strtolower($rating['vuln']['grade']) }}">
             <span class="grade-letter grade-{{ strtolower($rating['vuln']['grade']) }}">{{ $rating['vuln']['grade'] }}</span>
           </div>
-          <div class="grade-label">Vulnerability</div>
+          <div class="grade-label">Vulnerabilitas</div>
           <div class="grade-score">{{ $rating['vuln']['score'] }}<span class="grade-max">/100</span></div>
         </div>
         <div class="grade-card">
           <div class="grade-badge badge-{{ strtolower($rating['incident']['grade']) }}">
             <span class="grade-letter grade-{{ strtolower($rating['incident']['grade']) }}">{{ $rating['incident']['grade'] }}</span>
           </div>
-          <div class="grade-label">Incident</div>
+          <div class="grade-label">Insiden</div>
           <div class="grade-score">{{ $rating['incident']['score'] }}<span class="grade-max">/100</span></div>
         </div>
       </div>
       <div class="assets-covered">
-        <span>Monitored perimeter coverage</span>
-        <span class="assets-count"><b>{{ number_format($totalAssets) }}</b> assets</span>
+        <span>Cakupan perimeter terpantau</span>
+        <span class="assets-count"><b>{{ number_format($totalAssets) }}</b> aset</span>
       </div>
 
       <div class="panel-sep"></div>
 
       <div class="panel-head">
-        <span class="panel-title">Groups by Security Rating</span>
+        <span class="panel-title">Grup menurut Rating Keamanan</span>
       </div>
       @if ($groupRatings)
         <div class="rating-list">
@@ -231,8 +231,8 @@
           @endforeach
         </div>
       @else
-        <p class="muted">No asset groups yet.</p>
-        <a class="btn btn-primary btn-sm" href="{{ route('scans.new') }}">Scan a domain</a>
+        <p class="muted">Belum ada grup aset.</p>
+        <a class="btn btn-primary btn-sm" href="{{ route('scans.new') }}">Scan sebuah domain</a>
       @endif
     </div>
   </div>
@@ -240,13 +240,13 @@
   <div class="dash-grid">
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Recent Vulnerabilities</span>
-        <a class="view-all" href="{{ route('vulnerabilities.index') }}">View all →</a>
+        <span class="panel-title">Vulnerabilitas Terbaru</span>
+        <a class="view-all" href="{{ route('vulnerabilities.index') }}">Lihat semua →</a>
       </div>
       @if ($recentVulnerabilities->isNotEmpty())
         <div class="table-wrap">
           <table class="tbl">
-            <thead><tr><th style="width: 110px;">Severity</th><th>Title</th><th>Host</th><th style="width: 110px; text-align: right;">Age</th></tr></thead>
+            <thead><tr><th style="width: 110px;">Severitas</th><th>Judul</th><th>Host</th><th style="width: 110px; text-align: right;">Umur</th></tr></thead>
             <tbody>
               @foreach ($recentVulnerabilities as $finding)
                 <tr class="tbl-row-link" data-href="{{ route('findings.show', $finding) }}" tabindex="0" role="link" aria-label="Buka temuan: {{ $finding->title }}">
@@ -260,14 +260,14 @@
           </table>
         </div>
       @else
-        <p class="muted">No open vulnerabilities.</p>
+        <p class="muted">Tidak ada vulnerabilitas terbuka.</p>
       @endif
     </div>
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title">Recent Incidents</span>
-        <a class="view-all" href="{{ route('incidents.index') }}">View all →</a>
+        <span class="panel-title">Insiden Terbaru</span>
+        <a class="view-all" href="{{ route('incidents.index') }}">Lihat semua →</a>
       </div>
       @if ($recentIncidents->isNotEmpty())
         <div class="incident-feed">
@@ -283,7 +283,7 @@
           @endforeach
         </div>
       @else
-        <p class="muted">No open incident findings.</p>
+        <p class="muted">Tidak ada temuan insiden terbuka.</p>
       @endif
     </div>
   </div>

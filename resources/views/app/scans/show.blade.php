@@ -7,19 +7,19 @@
     <div>
       <h1 class="mono" style="word-break: break-all;">{{ $scan->group->root_domain }}</h1>
       <p style="margin-top: 6px;">
-        <span>Scope: {{ $scan->modeBadge() }}</span>
+        <span>Ruang lingkup: {{ $scan->modeBadge() }}</span>
         <span style="margin: 0 6px;">·</span>
-        <span>Started: {{ $scan->started_at ? $scan->started_at->diffForHumans() : 'queued' }}</span>
+        <span>Dimulai: {{ $scan->started_at ? $scan->started_at->diffForHumans() : 'antre' }}</span>
       </p>
     </div>
     <div class="page-actions">
       @if ($scan->isLive())
         <form method="POST" action="{{ route('scans.stop', $scan) }}">
           @csrf
-          <button class="btn btn-ghost btn-sm danger" type="submit">Stop Scan</button>
+          <button class="btn btn-ghost btn-sm danger" type="submit">Hentikan Scan</button>
         </form>
       @endif
-      <a class="btn btn-ghost btn-sm" href="{{ route('groups.show', $scan->group) }}">View Asset Group</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('groups.show', $scan->group) }}">Lihat Grup Aset</a>
     </div>
   </div>
 

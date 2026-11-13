@@ -31,8 +31,8 @@ class DashboardTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertViewIs('app.dashboard')
-            ->assertSee('Open Vulnerabilities')
-            ->assertSee('Open Incidents');
+            ->assertSee('Vulnerabilitas Terbuka')
+            ->assertSee('Insiden Terbuka');
     }
 
     public function test_dashboard_requires_terms(): void
@@ -48,6 +48,6 @@ class DashboardTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('dashboard'));
 
-        $response->assertOk()->assertSee('critical exposures need attention');
+        $response->assertOk()->assertSee('eksposur kritis butuh perhatian');
     }
 }

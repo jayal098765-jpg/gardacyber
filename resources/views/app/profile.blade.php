@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Profile & Settings')
+@section('title', 'Profil & Pengaturan')
 
 @section('content')
   <div class="page-head row" style="align-items: flex-start;">
     <div>
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
         <span class="badge" style="background: rgba(0, 82, 204, 0.12); color: #00d2ff; border-color: rgba(0, 210, 255, 0.3);">
-          <span class="signal-dot"></span>Account Control
+          <span class="signal-dot"></span>Kontrol Akun
         </span>
       </div>
-      <h1>Profile &amp; Settings</h1>
-      <p style="margin-top: 6px;">Manage your operator identity, credentials, and real-time security alert channels.</p>
+      <h1>Profil &amp; Pengaturan</h1>
+      <p style="margin-top: 6px;">Kelola identitas operator, kredensial, dan saluran alert keamanan waktu nyata.</p>
     </div>
   </div>
 
@@ -19,52 +19,52 @@
     {{-- PROFILE IDENTITY CARD --}}
     <div class="scan-card">
       <div class="panel-head" style="margin-bottom: 16px;">
-        <span class="panel-title" style="font-size: 15px; font-weight: 700;">Operator Identity</span>
-        <span class="pill" style="font-size: 11px;">Active</span>
+        <span class="panel-title" style="font-size: 15px; font-weight: 700;">Identitas Operator</span>
+        <span class="pill" style="font-size: 11px;">Aktif</span>
       </div>
 
       <form method="POST" action="{{ route('profile.update') }}">
         @csrf
         @method('PATCH')
         <div class="field">
-          <label for="display_name">Display name</label>
+          <label for="display_name">Nama tampilan</label>
           <input id="display_name" class="input" type="text" name="display_name" value="{{ $user->display_name }}" required />
         </div>
         <div class="field">
-          <label for="workspace_name">Workspace name</label>
+          <label for="workspace_name">Nama workspace</label>
           <input id="workspace_name" class="input" type="text" name="workspace_name" value="{{ $user->workspace_name }}" required />
         </div>
         <div class="field">
           <label for="email">Email address</label>
           <input id="email" class="input mono" type="email" name="email" value="{{ $user->email }}" required />
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">Save Profile</button>
+        <button class="btn btn-primary btn-sm" type="submit">Simpan Profil</button>
       </form>
     </div>
 
     {{-- PASSWORD UPDATE CARD --}}
     <div class="scan-card">
       <div class="panel-head" style="margin-bottom: 16px;">
-        <span class="panel-title" style="font-size: 15px; font-weight: 700;">Password &amp; Security</span>
-        <span class="pill" style="font-size: 11px;">Credentials</span>
+        <span class="panel-title" style="font-size: 15px; font-weight: 700;">Kata Sandi &amp; Keamanan</span>
+        <span class="pill" style="font-size: 11px;">Kredensial</span>
       </div>
 
       <form method="POST" action="{{ route('profile.password') }}">
         @csrf
         @method('PATCH')
         <div class="field">
-          <label for="current_password">Current password</label>
+          <label for="current_password">Kata sandi saat ini</label>
           <input id="current_password" class="input" type="password" name="current_password" required autocomplete="current-password" />
         </div>
         <div class="field">
-          <label for="password">New password</label>
+          <label for="password">Kata sandi baru</label>
           <input id="password" class="input" type="password" name="password" required minlength="8" autocomplete="new-password" />
         </div>
         <div class="field">
-          <label for="password_confirmation">Confirm new password</label>
+          <label for="password_confirmation">Konfirmasi kata sandi baru</label>
           <input id="password_confirmation" class="input" type="password" name="password_confirmation" required autocomplete="new-password" />
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">Update Password</button>
+        <button class="btn btn-primary btn-sm" type="submit">Perbarui Kata Sandi</button>
       </form>
     </div>
   </div>
@@ -74,13 +74,13 @@
     <div class="panel-head" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
       <div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="panel-title" style="font-size: 16px; font-weight: 700;">Telegram &amp; Webhook Alerts</span>
+          <span class="panel-title" style="font-size: 16px; font-weight: 700;">Alert Telegram &amp; Webhook</span>
           <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">
-            <span class="dot" style="background: #10b981;"></span>Real-Time Dispatch
+            <span class="dot" style="background: #10b981;"></span>Kirim Waktu Nyata
           </span>
         </div>
         <div style="font-size: 12.5px; color: var(--fg-subtle); margin-top: 4px;">
-          Receive critical vulnerability alerts and incident signals immediately on mobile and external security feeds.
+          Terima alert vulnerabilitas kritis dan sinyal insiden langsung di ponsel serta feed keamanan eksternal.
         </div>
       </div>
 
@@ -93,7 +93,7 @@
         <button type="button" class="btn btn-primary btn-sm" id="sendTelegramTestBtn" data-url="{{ Route::has('profile.telegram-test') ? route('profile.telegram-test') : url('/profile/telegram-test') }}">
           <svg class="btn-spinner-icon hidden" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
           <svg class="btn-regular-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          <span class="btn-text">Send Test Alert</span>
+          <span class="btn-text">Kirim Uji Coba Alert</span>
         </button>
       </div>
     </div>
@@ -187,9 +187,9 @@
       {{-- TELEGRAM & WEBHOOK DETAILS --}}
       <div>
         <div style="background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 12px; padding: 18px; margin-bottom: 18px;">
-          <h4 style="font-size: 13.5px; font-weight: 700; margin: 0 0 10px; color: var(--fg-default);">Step 1: Connect your Telegram Chat</h4>
+          <h4 style="font-size: 13.5px; font-weight: 700; margin: 0 0 10px; color: var(--fg-default);">Langkah 1: Hubungkan Chat Telegram</h4>
           <p style="font-size: 13px; color: var(--fg-muted); margin: 0 0 12px; line-height: 1.5;">
-            Start a conversation with <strong class="mono" style="color: var(--accent, #00d2ff);">@GardaCyberBot</strong> and send your secure workspace verification token:
+            Mulai percakapan dengan <strong class="mono" style="color: var(--accent, #00d2ff);">@GardaCyberBot</strong> dan kirim token verifikasi workspace amanmu:
           </p>
           <div style="display: flex; gap: 8px; align-items: center; max-width: 480px;">
             <input class="input mono" type="text" readonly value="/connect GARDA-{{ strtoupper(substr(md5($user->id . $user->email), 0, 10)) }}" id="tgTokenInput" style="font-size: 12px; background: #060c18; color: #38bdf8;" />
@@ -205,34 +205,34 @@
           @method('PATCH')
 
           <div style="background: var(--bg-surface-2, #0d1527); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: 12px; padding: 18px;">
-            <h4 style="font-size: 13.5px; font-weight: 700; margin: 0 0 10px; color: var(--fg-default);">Step 2: Notification Channel Preferences</h4>
+            <h4 style="font-size: 13.5px; font-weight: 700; margin: 0 0 10px; color: var(--fg-default);">Langkah 2: Preferensi Saluran Notifikasi</h4>
             <div class="dash-grid" style="grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
               <div>
                 <label for="telegram_chat_id" style="display: block; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px;">Telegram Chat ID / Group ID</label>
                 <input class="input mono" id="telegram_chat_id" name="telegram_chat_id" type="text" placeholder="e.g. 198273645 or -100123456789" value="{{ old('telegram_chat_id', $user->telegram_chat_id) }}" style="font-size: 12.5px;" />
               </div>
               <div>
-                <label for="telegram_bot_token" style="display: block; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px;">Telegram Bot Token (Optional Custom Bot)</label>
+                <label for="telegram_bot_token" style="display: block; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px;">Telegram Bot Token (Bot Kustom Opsional)</label>
                 <input class="input mono" id="telegram_bot_token" name="telegram_bot_token" type="password" placeholder="123456:ABC-DEF..." value="{{ old('telegram_bot_token', $user->telegram_bot_token) }}" style="font-size: 12.5px;" />
               </div>
             </div>
 
             <div style="margin-bottom: 14px;">
-              <label for="telegram_webhook_url" style="display: block; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px;">Custom Inbound Webhook (Discord / Slack / SIEM)</label>
+              <label for="telegram_webhook_url" style="display: block; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px;">Webhook Masuk Kustom (Discord / Slack / SIEM)</label>
               <input class="input mono" id="telegram_webhook_url" name="telegram_webhook_url" type="url" placeholder="https://hooks.slack.com/services/..." value="{{ old('telegram_webhook_url', $user->telegram_webhook_url) }}" style="font-size: 12.5px;" />
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; pt: 8px;">
               <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                 <label class="chk-row" style="margin: 0; font-size: 12px;">
-                  <input type="checkbox" checked /> Critical signals
+                  <input type="checkbox" checked /> Sinyal kritis
                 </label>
                 <label class="chk-row" style="margin: 0; font-size: 12px;">
-                  <input type="checkbox" checked /> Defacement alerts
+                  <input type="checkbox" checked /> Alert defacement
                 </label>
               </div>
 
-              <button class="btn btn-ghost btn-sm" type="submit">Save Channel Settings</button>
+              <button class="btn btn-ghost btn-sm" type="submit">Simpan Pengaturan Saluran</button>
             </div>
           </div>
         </form>

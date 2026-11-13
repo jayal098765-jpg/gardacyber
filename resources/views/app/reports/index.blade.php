@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Reports')
+@section('title', 'Laporan')
 
 @section('content')
   <div class="page-head row">
     <div>
-      <h1>Reports</h1>
-      <p>Export open findings as CSV or print-ready HTML.</p>
+      <h1>Laporan</h1>
+      <p>Ekspor temuan terbuka sebagai CSV atau HTML siap cetak.</p>
     </div>
   </div>
 
@@ -15,24 +15,24 @@
       @csrf
       <div class="opt-grid">
         <div class="field">
-          <label for="scope">Scope</label>
+          <label for="scope">Ruang lingkup</label>
           <select id="scope" name="scope" class="input">
-            <option value="organization">Organization (all groups)</option>
-            <option value="group">Asset group</option>
-            <option value="vulnerabilities">Vulnerabilities</option>
-            <option value="incidents">Incidents</option>
+            <option value="organization">Organisasi (semua grup)</option>
+            <option value="group">Grup aset</option>
+            <option value="vulnerabilities">Vulnerabilitas</option>
+            <option value="incidents">Insiden</option>
           </select>
         </div>
         <div class="field">
           <label for="kind">Format</label>
           <select id="kind" name="kind" class="input">
             <option value="csv">CSV</option>
-            <option value="html">Print-friendly HTML</option>
+            <option value="html">HTML siap cetak</option>
           </select>
         </div>
       </div>
       <div class="field">
-        <label for="group_id">Asset group (when scope = group)</label>
+        <label for="group_id">Grup aset (saat ruang lingkup = grup)</label>
         <select id="group_id" name="group_id" class="input">
           <option value="">—</option>
           @foreach ($groups as $g)
@@ -40,17 +40,17 @@
           @endforeach
         </select>
       </div>
-      <button class="btn btn-primary" type="submit">Generate report</button>
+      <button class="btn btn-primary" type="submit">Buat laporan</button>
     </form>
   </div>
 
   <div class="page-head small-head">
-    <h2>Report History</h2>
+    <h2>Riwayat Laporan</h2>
   </div>
 
   <div class="table-wrap">
     <table class="tbl">
-      <thead><tr><th>Scope</th><th>Kind</th><th>Items</th><th>Generated</th><th></th></tr></thead>
+      <thead><tr><th>Ruang lingkup</th><th>Jenis</th><th>Item</th><th>Dibuat</th><th></th></tr></thead>
       <tbody>
         @forelse ($reports as $report)
           <tr>
@@ -60,17 +60,17 @@
             <td>{{ $report->generated_at?->diffForHumans() }}</td>
             <td>
               <div class="row-actions">
-                <a class="btn btn-ghost btn-sm" href="{{ route('reports.download', $report) }}">Download</a>
-                <form method="POST" action="{{ route('reports.destroy', $report) }}" onsubmit="return confirm('Delete this report?')">
+                <a class="btn btn-ghost btn-sm" href="{{ route('reports.download', $report) }}">Unduh</a>
+                <form method="POST" action="{{ route('reports.destroy', $report) }}" onsubmit="return confirm('Hapus laporan ini?')">
                   @csrf
                   @method('DELETE')
-                  <button class="btn btn-ghost btn-sm danger" type="submit">Delete</button>
+                  <button class="btn btn-ghost btn-sm danger" type="submit">Hapus</button>
                 </form>
               </div>
             </td>
           </tr>
         @empty
-          <tr><td colspan="5" class="muted">No reports yet. Generate one above.</td></tr>
+          <tr><td colspan="5" class="muted">Belum ada laporan. Buat satu di atas.</td></tr>
         @endforelse
       </tbody>
     </table>

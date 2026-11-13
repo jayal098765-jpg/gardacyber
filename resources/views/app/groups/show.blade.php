@@ -6,18 +6,18 @@
   <div class="page-head row">
     <div>
       <h1 class="mono">{{ $group->root_domain }}</h1>
-      <p>{{ $group->assets_count ?? $assets->count() }} assets · last scanned {{ $group->last_scanned_at?->diffForHumans() ?? 'never' }}</p>
+      <p>{{ $group->assets_count ?? $assets->count() }} aset · scan terakhir {{ $group->last_scanned_at?->diffForHumans() ?? 'tidak pernah' }}</p>
     </div>
     <div class="page-actions">
       <a class="btn btn-ghost btn-sm" href="{{ route('groups.storyboard', $group) }}">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        Storyboard
+        Papan Cerita
       </a>
-      <a class="btn btn-ghost btn-sm" href="{{ route('scans.new') }}">Rescan</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('scans.new') }}">Scan Ulang</a>
       <form method="POST" action="{{ route('groups.destroy', $group) }}" onsubmit="return confirm('Delete this group and all its data?')">
         @csrf
         @method('DELETE')
-        <button type="submit" class="btn btn-ghost btn-sm danger">Delete group</button>
+        <button type="submit" class="btn btn-ghost btn-sm danger">Hapus grup</button>
       </form>
     </div>
   </div>
@@ -31,11 +31,11 @@
         </span>
         <div>
           <div class="panel-title" style="display: flex; align-items: center; gap: 8px;">
-            <span>AI Posture Summary</span>
-            <span class="badge ai-badge"><span class="signal-dot pulse"></span>Executive Intelligence</span>
+            <span>Ringkasan Postur AI</span>
+            <span class="badge ai-badge"><span class="signal-dot pulse"></span>Intelijen Eksekutif</span>
           </div>
           <div class="panel-subtitle" style="font-size: 11.5px; color: var(--fg-subtle); margin-top: 2px;">
-            Cross-asset vulnerability correlation, exposure rating, and remediation roadmap
+            Korelasi vulnerabilitas lintas-aset, rating eksposur, dan peta jalan remediasi
           </div>
         </div>
       </div>
@@ -43,7 +43,7 @@
       <div class="ai-head-actions">
         <button type="button" class="btn btn-primary btn-sm ai-btn" id="generateGroupSummaryBtn" data-url="{{ Route::has('groups.ai-summary') ? route('groups.ai-summary', $group) : url('/groups/' . $group->id . '/ai-summary') }}">
           <svg class="ai-btn-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          <span class="btn-label">Executive Summary</span>
+          <span class="btn-label">Ringkasan Eksekutif</span>
         </button>
       </div>
     </div>
@@ -56,10 +56,10 @@
           </div>
           <div class="ai-callout-text">
             <p style="margin: 0; font-size: 13.5px; color: var(--fg-default); line-height: 1.5;">
-              Synthesize perimeter defense posture for <strong class="mono" style="color: var(--accent, #00d2ff);">{{ $group->root_domain }}</strong>: <span class="mono" style="font-weight: 600;">{{ $assets->count() }}</span> perimeter assets, <span class="mono" style="color: var(--sev-critical); font-weight: 600;">{{ $openVulnerabilities->count() }}</span> open vulnerabilities, and active security signals.
+              Sintesiskan postur pertahanan perimeter untuk <strong class="mono" style="color: var(--accent, #00d2ff);">{{ $group->root_domain }}</strong>: <span class="mono" style="font-weight: 600;">{{ $assets->count() }}</span> aset perimeter, <span class="mono" style="color: var(--sev-critical); font-weight: 600;">{{ $openVulnerabilities->count() }}</span> vulnerabilitas terbuka, dan sinyal keamanan aktif.
             </p>
             <p style="margin: 4px 0 0; font-size: 12px; color: var(--fg-subtle);">
-              Click <strong>Executive Summary</strong> to trigger an AI assessment with key risk metrics and top recommended actions.
+              Klik <strong>Ringkasan Eksekutif</strong> untuk memicu penilaian AI dengan metrik risiko utama dan tindakan teratas yang direkomendasikan.
             </p>
           </div>
         </div>
@@ -69,8 +69,8 @@
         <div class="garda-spinner-wrap">
           <span class="garda-spinner" aria-hidden="true"></span>
           <div class="ai-loading-text">
-            <div class="ai-loading-title">Synthesizing group posture with AI Advisor...</div>
-            <div class="ai-loading-sub mono">Evaluating risk ratings (Vuln: {{ $ratings['vuln']['grade'] }}, Incident: {{ $ratings['incident']['grade'] }}) &amp; asset attack paths</div>
+            <div class="ai-loading-title">Mensintesiskan postur grup dengan AI Advisor...</div>
+            <div class="ai-loading-sub mono">Mengevaluasi rating risiko (Vuln: {{ $ratings['vuln']['grade'] }}, Insiden: {{ $ratings['incident']['grade'] }}) &amp; jalur serangan aset</div>
           </div>
         </div>
       </div>
@@ -84,18 +84,18 @@
   <div class="grade-row group-grades">
     <div class="grade-card">
       <div class="grade-letter grade-{{ strtolower($ratings['vuln']['grade']) }}">{{ $ratings['vuln']['grade'] }}</div>
-      <div class="grade-label">Vulnerability Rating</div>
+      <div class="grade-label">Rating Vulnerabilitas</div>
       <div class="grade-score">{{ $ratings['vuln']['score'] }}/100</div>
     </div>
     <div class="grade-card">
       <div class="grade-letter grade-{{ strtolower($ratings['incident']['grade']) }}">{{ $ratings['incident']['grade'] }}</div>
-      <div class="grade-label">Incident Rating</div>
+      <div class="grade-label">Rating Insiden</div>
       <div class="grade-score">{{ $ratings['incident']['score'] }}/100</div>
     </div>
   </div>
 
   <div class="tabs">
-    @php $tabs = ['assets' => 'Assets', 'vulnerabilities' => 'Vulnerabilities', 'incidents' => 'Incidents', 'history' => 'History']; @endphp
+    @php $tabs = ['assets' => 'Aset', 'vulnerabilities' => 'Vulnerabilitas', 'incidents' => 'Insiden', 'history' => 'Riwayat']; @endphp
     @foreach ($tabs as $key => $label)
       <a class="tab {{ $tab === $key ? 'active' : '' }}" href="{{ route('groups.show', ['group' => $group, 'tab' => $key]) }}">{{ $label }}</a>
     @endforeach

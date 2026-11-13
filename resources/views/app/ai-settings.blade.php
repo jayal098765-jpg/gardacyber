@@ -1,22 +1,22 @@
 @extends('layouts.app')
 
-@section('title', 'AI Advisor & Triage Engine')
+@section('title', 'Mesin AI Advisor & Triage')
 
 @section('content')
   <div class="page-head row" style="align-items: flex-start;">
     <div>
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <span class="badge ai-badge"><span class="signal-dot pulse"></span>Intelligence Configuration</span>
-        <span class="pill ok" id="activeProviderBadge">Local Engine (Default)</span>
+        <span class="badge ai-badge"><span class="signal-dot pulse"></span>Konfigurasi Intelijen</span>
+        <span class="pill ok" id="activeProviderBadge">Mesin Lokal (Bawaan)</span>
       </div>
-      <h1>AI Advisor &amp; Triage Engine</h1>
+      <h1>Mesin AI Advisor &amp; Triage</h1>
       <p style="margin-top: 6px;">
-        Configure external model providers for remediation guidance and posture summaries, or operate fully offline with deterministic local rules.
+        Konfigurasi provider model eksternal untuk panduan remediasi dan ringkasan postur, atau jalankan sepenuhnya offline dengan aturan lokal deterministik.
       </p>
     </div>
 
     <div class="page-actions">
-      <a class="btn btn-ghost btn-sm" href="{{ route('issues.index') }}">Review Findings</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('issues.index') }}">Tinjau Temuan</a>
     </div>
   </div>
 
@@ -26,12 +26,12 @@
       <div class="panel" style="margin-bottom: 24px;">
         <div class="panel-head" style="margin-bottom: 20px;">
           <div>
-            <span class="panel-title" style="font-size: 15px; font-weight: 700;">Provider Architecture</span>
+            <span class="panel-title" style="font-size: 15px; font-weight: 700;">Arsitektur Provider</span>
             <div style="font-size: 12px; color: var(--fg-subtle); margin-top: 2px;">
-              Select inference runtime for findings analysis and group synthesis
+              Pilih runtime inferensi untuk analisis temuan dan sintesis grup
             </div>
           </div>
-          <span class="pill" style="font-size: 11px;">Encrypted at Rest</span>
+          <span class="pill" style="font-size: 11px;">Terenskripsi Saat Diam</span>
         </div>
 
         <form id="aiSettingsForm" method="POST" action="{{ route('ai-settings.store') }}">
@@ -45,7 +45,7 @@
           {{-- PROVIDER SELECTION TILES --}}
           <div style="margin-bottom: 22px;">
             <label class="field-label" style="display: block; font-size: 12px; font-weight: 700; color: var(--fg-default); margin-bottom: 10px;">
-              SELECT REASONING PROVIDER
+              PILIH PROVIDER PENALARAN
             </label>
 
             <div class="ai-provider-grid" id="providerGrid">

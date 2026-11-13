@@ -1,34 +1,34 @@
 @extends('layouts.app')
 
-@section('title', 'Attack Storyboard & Breach Simulator · ' . $group->root_domain)
+@section('title', 'Papan Cerita Serangan & Simulator Pelanggaran · ' . $group->root_domain)
 
 @section('content')
   <div class="page-head row">
     <div>
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-        <span class="badge sb-badge"><span class="signal-dot pulse"></span>Attack Storyboard · AI Breach Simulator</span>
+        <span class="badge sb-badge"><span class="signal-dot pulse"></span>Papan Cerita Serangan · Simulator Pelanggaran AI</span>
         <span class="pill sev-{{ strtolower($storyboard['blastRadius']['level']) === 'critical' ? 'critical' : (strtolower($storyboard['blastRadius']['level']) === 'high' ? 'high' : 'ok') }}">
-          Blast Radius: {{ $storyboard['blastRadius']['level'] }}
+          Radius Luluhlantak: {{ $storyboard['blastRadius']['level'] }}
         </span>
-        <span class="pill info">Kill-Chain Analysis</span>
+        <span class="pill info">Analisis Rantai Kill-Chain</span>
       </div>
       <h1 class="mono">{{ $group->root_domain }}</h1>
-      <p>{{ $assetsCount }} assets · {{ $storyboard['totalFindings'] }} open findings · {{ count($storyboard['attackChain']) }} mapped kill-chain steps</p>
+      <p>{{ $assetsCount }} aset · {{ $storyboard['totalFindings'] }} temuan terbuka · {{ count($storyboard['attackChain']) }} langkah kill-chain terpetakan</p>
     </div>
     <div class="page-actions">
       <button type="button" class="btn btn-primary btn-sm" onclick="startAttackSimulation()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Play Simulation
+        Mainkan Simulasi
       </button>
       <a class="btn btn-ghost btn-sm" href="#shield-box">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Remediation Shield
+        Perisai Remediasi
       </a>
       <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Export PDF
+        Ekspor PDF
       </button>
-      <a class="btn btn-ghost btn-sm" href="{{ route('groups.show', $group) }}">Back to group</a>
+      <a class="btn btn-ghost btn-sm" href="{{ route('groups.show', $group) }}">Kembali ke grup</a>
     </div>
   </div>
 
@@ -98,7 +98,7 @@
   {{-- NARRATIVE STORY --}}
   <div class="panel sb-narrative" style="margin-bottom: 24px;">
     <div class="panel-head">
-      <span class="panel-title">Skenario Rantai Serangan (Threat Narrative)</span>
+      <span class="panel-title">Skenario Rantai Serangan (Narasi Ancaman)</span>
     </div>
     <ol class="sb-narrative-list">
       @foreach ($storyboard['narrative'] as $line)
@@ -111,7 +111,7 @@
   <div class="panel sb-graph-container">
     <div class="panel-head" style="margin-bottom: 16px;">
       <div>
-        <span class="panel-title">Visual Attack Graph Pipeline (5-Stage Kill-Chain)</span>
+        <span class="panel-title">Visual Pipeline Graf Serangan (Rantai Kill-Chain 5 Tahap)</span>
         <p style="font-size: 12.5px; color: var(--fg-muted); margin: 4px 0 0;">
           Alur pergerakan ancaman dari penemuan target hingga eskalasi dampak bisnis
         </p>
@@ -293,7 +293,7 @@
   {{-- FOOTER EXPLANATION --}}
   <div class="panel" style="margin-top: 24px;">
     <div class="panel-head">
-      <span class="panel-title">Tentang Metodologi Attack Storyboard &amp; Kill-Chain</span>
+      <span class="panel-title">Tentang Metodologi Papan Cerita Serangan &amp; Kill-Chain</span>
     </div>
     <p style="font-size: 13px; color: var(--fg-muted); line-height: 1.6; margin: 0;">
       Garda OS Attack Storyboard merekonstruksi urutan probabilitas serangan nyata terhadap perimeter <strong>{{ $group->root_domain }}</strong> berdasarkan model Lockheed Martin Cyber Kill Chain dan MITRE ATT&amp;CK. Mulai dari fase pengintaian (Reconnaissance), probing celah tersembunyi, eksploitasi kelemahan, kompromi sistem (Compromise), hingga kalkulasi dampak nyata bisnis (Blast Radius). Solusi 1-Click Shield memberikan remedi instan tanpa perlu menunggu audit manual yang memakan waktu berhari-hari.
