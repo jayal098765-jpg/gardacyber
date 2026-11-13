@@ -25,6 +25,9 @@ php artisan storage:link >/dev/null 2>&1 || true
 echo "[GardaCyber] boot: running migrations"
 php artisan migrate --force
 
+echo "[GardaCyber] boot: seeding CVE baseline"
+php artisan cve:baseline
+
 echo "[GardaCyber] boot: seeding demo data"
 GARDA_SEED_FORCE=true php artisan app:demo-seed
 

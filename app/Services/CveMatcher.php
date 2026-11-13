@@ -4,17 +4,9 @@ namespace App\Services;
 
 use App\Models\Cve;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 
 class CveMatcher
 {
-    /**
-     * Request-scoped cache for live NVD lookups (fingerprint => collection).
-     *
-     * @var array<string, Collection<int, Cve>>
-     */
-    private static array $nvdCache = [];
-
     /**
      * Banner product tokens mapped to (vendor, product, display label).
      *
@@ -76,10 +68,6 @@ class CveMatcher
      */
     public function matchesForFingerprint(array $fingerprint): Collection
     {
-        if (Cve::query()->count() === 0) {
-            return $this->matchesFromNvd($fingerprint);
-        }
-
         $query = Cve::query()->ofProduct($fingerprint['vendor'], $fingerprint['product']);
 
         if ($fingerprint['version'] === null) {
@@ -93,72 +81,6 @@ class CveMatcher
                 || $cve->version_ranges === []
                 || $this->versionInAnyRange($fingerprint['version'], $cve->version_ranges)
         )->values();
-    }
-
-    /**
-     * Live NVD lookup used while the local CVE database is still empty
-     * (e.g. during the first minutes of a fresh deployment). Queries the
-     * API by CPE for exact product/version matches.
-     *
-     * @param  array{vendor: string, product: string, version: string|null}  $fingerprint
-     * @return Collection<int, Cve>
-     */
-    public function matchesFromNvd(array $fingerprint): Collection
-    {
-        $cacheKey = $fingerprint['vendor'].'/'.$fingerprint['product'].'/'.($fingerprint['version'] ?? '*');
-
-        if (isset(static::$nvdCache[$cacheKey])) {
-            return static::$nvdCache[$cacheKey];
-        }
-
-        $cpe = sprintf(
-            'cpe:2.3:a:%s:%s:%s:*:*:*:*:*:*',
-            $fingerprint['vendor'],
-            $fingerprint['product'],
-            $fingerprint['version'] ?? '*'
-        );
-
-        $headers = ['User-Agent' => (string) config('cve.user_agent')];
-        $apiKey = config('cve.api_key');
-
-        if (is_string($apiKey) && $apiKey !== '') {
-            $headers['apiKey'] = $apiKey;
-        }
-
-        try {
-            $response = Http::withHeaders($headers)
-                ->timeout(60)
-                ->get((string) config('cve.api_base'), [
-                    'cpeName' => $cpe,
-                    'resultsPerPage' => 200,
-                ]);
-        } catch (\Throwable) {
-            return collect();
-        }
-
-        if ($response->failed()) {
-            return collect();
-        }
-
-        $rows = [];
-
-        foreach (($response->json('vulnerabilities') ?? []) as $item) {
-            $row = app(CveSyncService::class)->normalizeVuln($item);
-
-            if ($row === null) {
-                continue;
-            }
-
-            unset($row['cpes'], $row['version_ranges'], $row['published_at'], $row['modified_at']);
-            $row['exploited'] = false;
-            $rows[] = new Cve($row);
-        }
-
-        $matches = collect($rows)
-            ->sortByDesc(fn (Cve $cve): float => $cve->cvss_score ?? 0)
-            ->values();
-
-        return static::$nvdCache[$cacheKey] = $matches;
     }
 
     /**
