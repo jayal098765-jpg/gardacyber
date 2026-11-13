@@ -1281,6 +1281,10 @@ class SurfaceScanner
             || str_contains(strtolower(implode(' ', $headers['content-type'] ?? [])), 'text/html');
 
         if ($type !== 'incident' && ! $viaBrowser && empty($capture['blocked']) && $capture['status'] >= 200 && $capture['status'] < 300 && $isHtml) {
+            // `frame-ancestors` supersedes X-Frame-Options, so a page that
+            // ships it is protected even with no X-Frame-Options header.
+            $frameAncestors = $this->declaresFrameAncestors($headers);
+
             foreach ([
                 'strict-transport-security' => ['medium', 'HSTS header missing', 'Enable Strict-Transport-Security after verifying HTTPS across your site.'],
                 'content-security-policy' => ['low', 'Content Security Policy missing', 'Deploy a tested Content-Security-Policy to reduce browser injection impact.'],
@@ -1288,6 +1292,10 @@ class SurfaceScanner
                 'x-frame-options' => ['medium', 'Clickjacking protection missing (X-Frame-Options)', 'Set X-Frame-Options: SAMEORIGIN (or a frame-ancestors CSP) to prevent UI redress / clickjacking attacks.'],
                 'referrer-policy' => ['low', 'Referrer policy missing', 'Set a Referrer-Policy appropriate for the application.'],
             ] as $header => [$severity, $title, $description]) {
+                if ($header === 'x-frame-options' && $frameAncestors) {
+                    continue;
+                }
+
                 if (empty($headers[$header])) {
                     $findings[] = compact('severity', 'title', 'description') + ['kind' => 'vulnerability', 'category' => 'security-headers', 'evidence' => 'HTTPS / returned '.$capture['status'].'; response header '.$header.' absent. Configuration observation, not proof of exploitation.'];
                 }
@@ -1312,5 +1320,22 @@ class SurfaceScanner
         }
 
         return $findings;
+    }
+
+    /**
+     * True when the page's Content-Security-Policy already restricts framing.
+     *
+     * A `frame-ancestors` directive replaces X-Frame-Options in supporting
+     * browsers, so flagging the missing header on such a site would be a false
+     * positive. An empty directive (`frame-ancestors;`) is ignored by browsers
+     * and therefore does not count as protection.
+     *
+     * @param  array<string, array<int, string>>  $headers  Lowercased header map.
+     */
+    private function declaresFrameAncestors(array $headers): bool
+    {
+        $policy = strtolower(implode(' ', $headers['content-security-policy'] ?? []));
+
+        return preg_match('/frame-ancestors\s+(?!;|$)\S/', $policy) === 1;
     }
 }

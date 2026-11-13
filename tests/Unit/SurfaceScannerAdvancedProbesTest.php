@@ -191,4 +191,44 @@ class SurfaceScannerAdvancedProbesTest extends TestCase
 
         $this->assertContains('Clickjacking protection missing (X-Frame-Options)', $titles);
     }
+
+    public function test_analyzer_accepts_a_frame_ancestors_policy_instead_of_the_header(): void
+    {
+        $scanner = new SurfaceScanner;
+        $capture = [
+            'ip' => '192.0.2.1',
+            'status' => 200,
+            'headers' => [
+                'content-type' => ['text/html; charset=utf-8'],
+                'content-security-policy' => ["default-src 'self'; frame-ancestors 'none'"],
+            ],
+            'body' => '<!doctype html><html><body><h1>Safe</h1></body></html>',
+            'truncated' => false,
+        ];
+
+        $titles = array_column($scanner->analyze($capture, 'full'), 'title');
+
+        $this->assertNotContains('Clickjacking protection missing (X-Frame-Options)', $titles);
+    }
+
+    public function test_analyzer_still_flags_framing_when_the_directive_is_empty(): void
+    {
+        // `frame-ancestors;` has no value, so browsers ignore it and the page
+        // genuinely remains frameable.
+        $scanner = new SurfaceScanner;
+        $capture = [
+            'ip' => '192.0.2.1',
+            'status' => 200,
+            'headers' => [
+                'content-type' => ['text/html; charset=utf-8'],
+                'content-security-policy' => ["default-src 'self'; frame-ancestors;"],
+            ],
+            'body' => '<!doctype html><html><body><h1>Safe</h1></body></html>',
+            'truncated' => false,
+        ];
+
+        $titles = array_column($scanner->analyze($capture, 'full'), 'title');
+
+        $this->assertContains('Clickjacking protection missing (X-Frame-Options)', $titles);
+    }
 }
