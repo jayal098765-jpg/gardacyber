@@ -126,6 +126,21 @@ class ScanFlowTest extends TestCase
             {
                 return [];
             }
+
+            public function probeAdvancedXss(string $hostname, string $ip): array
+            {
+                return [];
+            }
+
+            public function probeAuthBruteForceResistance(string $hostname, string $ip, array $capture): array
+            {
+                return [];
+            }
+
+            public function probeSubdomainTakeover(array $subdomains): array
+            {
+                return [];
+            }
         };
 
         $job = new RunSurfaceScan($scan->id);

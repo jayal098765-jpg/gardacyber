@@ -19,7 +19,7 @@ class RunSurfaceScan implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 60;
+    public int $timeout = 120;
 
     public function __construct(public int $scanId) {}
 
@@ -32,19 +32,27 @@ class RunSurfaceScan implements ShouldQueue
         $scan = Scan::with('group')->findOrFail($this->scanId);
 
         try {
-            $this->stage($scan, 1, 'Resolving public DNS and discovering live subdomains.');
+            $this->stage($scan, 1, 'Resolving public DNS, discovering live subdomains, and checking the CDN/WAF edge.');
 
             $capture = $scanner->capture($scan->group->root_domain);
             $subdomains = $scanner->discoverSubdomains($scan->group->root_domain);
             $openPorts = $scanner->probePorts($capture['ip']);
 
-            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, and web injection indicators.');
+            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, advanced injection, brute-force posture, and takeover indicators.');
 
             $findings = $scanner->analyze($capture, $scan->type);
+            $findings = [...$findings, ...$scanner->wafFindings($capture, $scan->group->root_domain)];
 
-            if ($scan->type !== Scan::TYPE_INCIDENT) {
-                $activeFindings = $scanner->probeActiveVulnerabilities($scan->group->root_domain, $capture['ip']);
-                $findings = array_merge($findings, $activeFindings);
+            if ($scan->type !== Scan::TYPE_INCIDENT && (bool) config('scanner.active_probes', true)) {
+                $findings = [...$findings, ...$scanner->probeActiveVulnerabilities($scan->group->root_domain, $capture['ip'])];
+
+                $advancedFindings = [
+                    ...$scanner->probeAdvancedXss($scan->group->root_domain, $capture['ip']),
+                    ...$scanner->probeAuthBruteForceResistance($scan->group->root_domain, $capture['ip'], $capture),
+                    ...$scanner->probeSubdomainTakeover($subdomains),
+                ];
+
+                $findings = [...$findings, ...$advancedFindings];
             }
 
             $this->stage($scan, 3, 'Persisting observed perimeter assets, open ports, and evidence.');
@@ -57,16 +65,28 @@ class RunSurfaceScan implements ShouldQueue
                 }
 
                 preg_match('/<title[^>]*>(.*?)<\/title>/is', $capture['body'], $title);
+
+                $attributes = [
+                    'ip_address' => $capture['ip'],
+                    'http_status' => $capture['status'],
+                    'title' => mb_substr(strip_tags($title[1] ?? ''), 0, 255),
+                    'server_header' => mb_substr(implode(' ', $capture['headers']['server'] ?? []), 0, 255),
+                    'ports' => $openPorts,
+                    'last_seen_at' => now(),
+                ];
+
+                $cdn = $capture['waf']['provider'] ?? null;
+
+                // Only overwrite the stored edge provider when this scan
+                // actually observed one, otherwise a direct (non-CDN) scan
+                // would erase what an earlier pass recorded.
+                if (is_string($cdn) && $cdn !== '' && $cdn !== 'unknown') {
+                    $attributes['cdn'] = $cdn;
+                }
+
                 $rootAsset = Asset::updateOrCreate(
                     ['asset_group_id' => $scan->asset_group_id, 'hostname' => $scan->group->root_domain],
-                    [
-                        'ip_address' => $capture['ip'],
-                        'http_status' => $capture['status'],
-                        'title' => mb_substr(strip_tags($title[1] ?? ''), 0, 255),
-                        'server_header' => mb_substr(implode(' ', $capture['headers']['server'] ?? []), 0, 255),
-                        'ports' => $openPorts,
-                        'last_seen_at' => now(),
-                    ]
+                    $attributes
                 );
 
                 $assetCount = 1;
@@ -106,6 +126,14 @@ class RunSurfaceScan implements ShouldQueue
                 $vulnCount = count(array_filter($findings, fn (array $f): bool => $f['kind'] === 'vulnerability'));
                 $incidentCount = count(array_filter($findings, fn (array $f): bool => $f['kind'] === 'incident'));
 
+                $message = 'Completed. Live perimeter scanned (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
+
+                if (! empty($capture['via_origin'])) {
+                    $message = 'Completed. CDN/WAF edge bypassed; checks ran against origin '.$capture['ip'].' (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
+                } elseif (! empty($capture['blocked'])) {
+                    $message = 'Completed with limited coverage. The CDN/WAF blocked the scanner (HTTP '.$capture['status'].'), so header, exposure, and injection checks are partial. '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
+                }
+
                 $current->update([
                     'status' => Scan::STATUS_COMPLETED,
                     'finished_at' => now(),
@@ -114,7 +142,7 @@ class RunSurfaceScan implements ShouldQueue
                         'assets' => $assetCount,
                         'vulnerabilities' => $vulnCount,
                         'incidents' => $incidentCount,
-                        'message' => 'Completed. Live perimeter scanned (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.',
+                        'message' => $message,
                     ]),
                 ]);
 

@@ -7,6 +7,18 @@ use Illuminate\Validation\ValidationException;
 
 class SurfaceScanner
 {
+    /**
+     * Browser-grade identity for the primary capture. Edge bot rules that key
+     * off obviously-automated clients are far less likely to challenge it, so
+     * the scanner sees the application instead of an interstitial.
+     */
+    private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+    public function __construct(
+        private CdnFingerprint $fingerprint = new CdnFingerprint,
+        private OriginDiscovery $origins = new OriginDiscovery,
+    ) {}
+
     public function assertAllowed(string $hostname): void
     {
         if (config('scanner.allow_any_public', true)) {
@@ -96,12 +108,23 @@ class SurfaceScanner
         return $open ?: [443];
     }
 
-    /** @return array{ip: string, status: int, headers: array, body: string, truncated: bool} */
+    /**
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool}
+     */
     public function capture(string $hostname): array
     {
         $this->assertAllowed($hostname);
         $ip = $this->resolve($hostname);
-        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        return $this->withWafAnalysis($hostname, $this->fetchPrimary($hostname, $ip));
+    }
+
+    /**
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool}
+     */
+    private function fetchPrimary(string $hostname, string $ip): array
+    {
+        $pinnedIp = $this->pin($ip);
 
         try {
             return $this->fetchUrl('https://'.$hostname.'/', $hostname, $pinnedIp, 443, $ip);
@@ -115,10 +138,44 @@ class SurfaceScanner
         }
     }
 
+    private function pin(string $ip): string
+    {
+        return str_contains($ip, ':') ? '['.$ip.']' : $ip;
+    }
+
+    /**
+     * A real browser's navigation headers. Edge bot rules score these heavily,
+     * so sending them keeps the assessment out of the challenge path far more
+     * often than a bare user-agent swap does.
+     *
+     * @return array<string, string>
+     */
+    private function browserHeaders(): array
+    {
+        return [
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language' => 'en-US,en;q=0.9',
+            'Sec-Ch-Ua' => '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'Sec-Ch-Ua-Mobile' => '?0',
+            'Sec-Ch-Ua-Platform' => '"Windows"',
+            'Sec-Fetch-Dest' => 'document',
+            'Sec-Fetch-Mode' => 'navigate',
+            'Sec-Fetch-Site' => 'none',
+            'Sec-Fetch-User' => '?1',
+            'Upgrade-Insecure-Requests' => '1',
+            'Cache-Control' => 'no-cache',
+            'Pragma' => 'no-cache',
+        ];
+    }
+
+    /**
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool}
+     */
     private function fetchUrl(string $url, string $hostname, string $pinnedIp, int $port, string $ip): array
     {
         $response = Http::connectTimeout(5)->timeout(12)
-            ->withUserAgent('GardaCyber/1.0 (authorized perimeter assessment; +https://gardacyber.test)')
+            ->withHeaders($this->browserHeaders())
+            ->withUserAgent(self::USER_AGENT)
             ->withOptions([
                 'allow_redirects' => false,
                 'proxy' => '',
@@ -137,6 +194,152 @@ class SurfaceScanner
             'body' => $body,
             'truncated' => $truncated,
         ];
+    }
+
+    /**
+     * Classify the edge response and, when a WAF challenge blocked the scan,
+     * re-capture the site straight from a discovered origin address so the
+     * assessment can continue. No challenge is ever solved: if no origin can
+     * be confirmed the capture is returned flagged as blocked.
+     *
+     * @param  array{ip: string, status: int, headers: array, body: string, truncated: bool}  $capture
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool}
+     */
+    private function withWafAnalysis(string $hostname, array $capture): array
+    {
+        $detection = $this->fingerprint->detect($capture['headers'], $capture['body'], $capture['status']);
+        $blocked = (bool) ($detection['challenged'] ?? false);
+
+        $capture['waf'] = $detection;
+        $capture['blocked'] = $blocked;
+        $capture['via_origin'] = false;
+
+        if (! $blocked || ! (bool) config('scanner.waf_bypass', true)) {
+            return $capture;
+        }
+
+        $originCapture = $this->bypassWaf($hostname);
+
+        if ($originCapture === null) {
+            return $capture;
+        }
+
+        return [
+            ...$originCapture,
+            'waf' => $detection,
+            'blocked' => false,
+            'via_origin' => true,
+            'edge_status' => $capture['status'],
+        ];
+    }
+
+    /**
+     * Walk the domain's passive DNS footprint looking for an address that
+     * serves the application without the edge in front of it.
+     *
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool, origin: array{ip: string, host: string, source: string}}|null
+     */
+    public function bypassWaf(string $hostname): ?array
+    {
+        $limit = max(1, (int) config('scanner.waf_bypass_candidates', 6));
+        $deadline = microtime(true) + max(1.0, (float) config('scanner.waf_bypass_budget', 12.0));
+
+        foreach ($this->origins->candidates($hostname, $limit, $deadline) as $candidate) {
+            if (microtime(true) > $deadline) {
+                break;
+            }
+
+            $capture = $this->captureViaOrigin($hostname, $candidate['ip']);
+
+            if ($capture === null || ! $this->isVerifiedOrigin($capture)) {
+                continue;
+            }
+
+            return [...$capture, 'origin' => $candidate];
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch the hostname pinned to a candidate origin address while keeping
+     * Host/SNI on the real hostname, exactly as a browser would when it has
+     * been pointed at the origin directly.
+     *
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool}|null
+     */
+    public function captureViaOrigin(string $hostname, string $originIp): ?array
+    {
+        $pinnedIp = $this->pin($originIp);
+
+        foreach ([['https', 443], ['http', 80]] as [$scheme, $port]) {
+            try {
+                return $this->fetchUrl($scheme.'://'.$hostname.'/', $hostname, $pinnedIp, $port, $originIp);
+            } catch (\Throwable) {
+                // Try the next scheme, then give up on this candidate.
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A candidate only counts as the origin when it serves a real application
+     * response instead of another challenge page.
+     *
+     * @param  array{status: int, headers: array, body: string}  $capture
+     */
+    public function isVerifiedOrigin(array $capture): bool
+    {
+        if ($capture['status'] < 200 || $capture['status'] >= 400) {
+            return false;
+        }
+
+        if (trim($capture['body']) === '') {
+            return false;
+        }
+
+        $detection = $this->fingerprint->detect($capture['headers'], $capture['body'], $capture['status']);
+
+        return $detection === null || ! $detection['challenged'];
+    }
+
+    /**
+     * Findings describing how the edge affected (or failed to affect) the scan.
+     *
+     * @param  array<string, mixed>  $capture
+     * @return array<int, array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}>
+     */
+    public function wafFindings(array $capture, string $hostname): array
+    {
+        $waf = $capture['waf'] ?? null;
+        $provider = is_array($waf) && isset($waf['provider']) ? (string) $waf['provider'] : 'edge WAF';
+
+        if (! empty($capture['via_origin'])) {
+            $origin = is_array($capture['origin'] ?? null) ? $capture['origin'] : [];
+
+            return [[
+                'kind' => 'vulnerability',
+                'severity' => 'medium',
+                'category' => 'waf-bypass',
+                'title' => 'Origin server directly reachable behind '.$provider,
+                'description' => 'The origin address answers on the public hostname with no CDN/WAF in front of it. Anyone who learns this address can skip the edge protections entirely, so the checks in this scan were collected against the origin.',
+                'evidence' => 'Origin '.($origin['ip'] ?? $capture['ip']).' confirmed via '.($origin['source'] ?? 'DNS footprint').'; edge returned HTTP '.($capture['edge_status'] ?? $capture['status']).' while the origin returned HTTP '.$capture['status'].'.',
+            ]];
+        }
+
+        if (! empty($capture['blocked'])) {
+            return [[
+                'kind' => 'vulnerability',
+                'severity' => 'low',
+                'category' => 'waf',
+                'title' => 'Edge WAF challenged the automated assessment',
+                'description' => 'The '.$provider.' edge answered with a challenge or block page instead of the application, and no direct origin could be confirmed. Header, exposure, and injection coverage for this scan is partial.',
+                'evidence' => 'Edge response HTTP '.$capture['status'].' matched a '.$provider.' challenge signature; passive DNS origin discovery produced no verified application response for '.$hostname.'.',
+            ]];
+        }
+
+        return [];
     }
 
     /**
@@ -214,26 +417,8 @@ class SurfaceScanner
             }
         }
 
-        // 2. Reflected XSS Parameter Probe (Non-executing tag reflection)
-        try {
-            $xssMarker = 'garda_probe_'.substr(md5($hostname), 0, 6);
-            $resp = Http::connectTimeout(2)->timeout(4)
-                ->withUserAgent('GardaCyber/1.0')
-                ->withOptions(['allow_redirects' => false, 'verify' => false, 'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]]])
-                ->get($baseUrl.'/?q=%22%3E%3C'.$xssMarker.'%3E');
-
-            if ($resp->status() === 200 && str_contains($resp->body(), '<'.$xssMarker.'>')) {
-                $findings[] = [
-                    'kind' => 'vulnerability',
-                    'severity' => 'high',
-                    'category' => 'cve',
-                    'title' => 'Reflected parameter injection (Potential XSS)',
-                    'description' => 'User-supplied query parameters are reflected unencoded into HTML responses without context-aware sanitization.',
-                    'evidence' => 'Probe tag <'.$xssMarker.'> reflected verbatim in response body without HTML entity encoding.',
-                ];
-            }
-        } catch (\Throwable) {
-        }
+        // 2. Advanced reflected XSS probe (multi-vector, non-executing markers)
+        $findings = [...$findings, ...$this->probeAdvancedXss($hostname, $ip)];
 
         // 3. SQL Error Disclosure Probe
         try {
@@ -271,7 +456,367 @@ class SurfaceScanner
         return $findings;
     }
 
-    /** @return array{ip: string, status: int, headers: array, body: string, truncated: bool} */
+    /**
+     * Advanced reflected XSS probe: tests several parameters with non-executing
+     * markers in raw HTML, attribute, and script contexts. Only reflection is
+     * reported — no payload is executed and no exploit is delivered.
+     *
+     * @return array<int, array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}>
+     */
+    public function probeAdvancedXss(string $hostname, string $ip): array
+    {
+        $findings = [];
+        $marker = 'garda_'.substr(md5($hostname), 0, 8);
+        $baseUrl = 'https://'.$hostname;
+        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        $parameters = ['q', 'search', 'term', 's', 'query', 'id', 'page', 'callback', 'next', 'url', 'redirect', 'lang'];
+
+        // Script context is checked first so the worst-case context wins when
+        // a parameter reflects in multiple contexts.
+        $vectors = [
+            'script' => [
+                'needle' => null,
+                'severity' => 'critical',
+                'title' => 'Reflected parameter injection (Potential XSS — script context)',
+                'description' => 'A query parameter is reflected inside a <script> block, allowing direct JavaScript injection.',
+            ],
+            'attribute' => [
+                'needle' => 'autofocus onfocus="'.$marker,
+                'severity' => 'high',
+                'title' => 'Reflected parameter injection (Potential XSS — attribute context)',
+                'description' => 'A query parameter is reflected inside an HTML attribute without escaping, allowing an attacker to break out and inject event-handler attributes.',
+            ],
+            'html' => [
+                'needle' => '<'.$marker.'>',
+                'severity' => 'high',
+                'title' => 'Reflected parameter injection (Potential XSS — raw HTML context)',
+                'description' => 'User-supplied query parameters are reflected unencoded into HTML responses without context-aware sanitization.',
+            ],
+        ];
+
+        $reported = 0;
+        $maxReported = 3;
+
+        foreach ($parameters as $parameter) {
+            foreach ($vectors as $context => $vector) {
+                $payload = match ($context) {
+                    'html' => '<'.$marker.'>',
+                    'attribute' => '" autofocus onfocus="'.$marker,
+                    'script' => '\';'.$marker.';\'',
+                };
+
+                try {
+                    $resp = Http::connectTimeout(2)->timeout(4)
+                        ->withUserAgent('GardaCyber/1.0')
+                        ->withOptions([
+                            'allow_redirects' => false,
+                            'verify' => false,
+                            'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
+                        ])->get($baseUrl.'/?'.http_build_query([$parameter => $payload]));
+
+                    if ($resp->status() !== 200) {
+                        continue;
+                    }
+
+                    $matched = $context === 'script'
+                        ? preg_match('/<script[^>]*>[^<]*'.preg_quote($marker, '/').'/is', $resp->body()) === 1
+                        : str_contains($resp->body(), $vector['needle']);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if ($matched) {
+                    $findings[] = [
+                        'kind' => 'vulnerability',
+                        'severity' => $vector['severity'],
+                        'category' => 'xss',
+                        'title' => $vector['title'],
+                        'description' => $vector['description'],
+                        'evidence' => 'Probe marker "'.$marker.'" reflected via parameter "'.$parameter.'" in '.$context.' context. GET '.$baseUrl.'/?'.http_build_query([$parameter => '...']).' returned HTTP 200.',
+                    ];
+                    $reported++;
+
+                    // One finding per parameter is enough; cap report volume.
+                    break;
+                }
+            }
+
+            if ($reported >= $maxReported) {
+                break;
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Brute-force posture probe: sends a small number of clearly-invalid login
+     * attempts to a discovered authentication endpoint and checks whether the
+     * server enforces rate limiting, throttling, or lockout signals. This is
+     * an indicator probe (default 5 attempts) — not a credential-cracking tool.
+     *
+     * @return array<int, array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}>
+     */
+    public function probeAuthBruteForceResistance(string $hostname, string $ip, array $capture): array
+    {
+        // The edge is answering, not the application: attempt counts and
+        // throttle headers would describe the WAF, not the login endpoint.
+        if (! empty($capture['blocked'])) {
+            return [];
+        }
+
+        $attempts = max(1, min(10, (int) config('scanner.brute_force_attempts', 5)));
+        $loginPaths = $this->discoverLoginPaths($capture);
+
+        if ($loginPaths === []) {
+            return [];
+        }
+
+        $findings = [];
+        $username = 'garda_probe_'.substr(md5($hostname), 0, 8).'@example.invalid';
+        $password = 'invalid-password-garda-probe';
+        $baseUrl = 'https://'.$hostname;
+        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        foreach ($loginPaths as $path) {
+            $statuses = [];
+            $rateLimited = false;
+            $alive = false;
+            $edgeBlocked = false;
+
+            for ($i = 0; $i < $attempts; $i++) {
+                try {
+                    $resp = Http::connectTimeout(2)->timeout(4)
+                        ->withUserAgent('GardaCyber/1.0')
+                        ->withOptions([
+                            'allow_redirects' => false,
+                            'verify' => false,
+                            'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
+                        ])->asForm()->post($baseUrl.$path, [
+                            'email' => $username,
+                            'username' => $username,
+                            'password' => $password,
+                        ]);
+
+                    $statuses[] = $resp->status();
+
+                    $detection = $this->fingerprint->detect(
+                        array_change_key_case($resp->headers(), CASE_LOWER),
+                        $resp->body(),
+                        $resp->status(),
+                    );
+
+                    if ($detection['challenged'] ?? false) {
+                        $edgeBlocked = true;
+                        break;
+                    }
+
+                    if (in_array($statuses[array_key_last($statuses)], [200, 201, 204, 301, 302, 303, 307, 308, 401, 403, 422], true)) {
+                        $alive = true;
+                    }
+
+                    if (in_array($resp->status(), [429, 423], true)) {
+                        $rateLimited = true;
+                    }
+
+                    if (trim((string) $resp->header('Retry-After')) !== ''
+                        || preg_match('/^x-ratelimit/i', implode(' ', array_keys($resp->headers())))) {
+                        $rateLimited = true;
+                    }
+                } catch (\Throwable) {
+                    $statuses[] = 0;
+                }
+
+                if ($rateLimited) {
+                    break;
+                }
+
+                usleep(150000); // Gentle 150ms spacing between attempts.
+            }
+
+            if (! $edgeBlocked && ! $rateLimited && $alive && count($statuses) >= 2) {
+                $findings[] = [
+                    'kind' => 'vulnerability',
+                    'severity' => 'medium',
+                    'category' => 'auth-bruteforce',
+                    'title' => 'Authentication endpoint lacks brute-force protection',
+                    'description' => 'A login endpoint accepted rapid, repeated invalid credential submissions without returning rate-limit, throttling, or lockout signals (HTTP 429/423 or Retry-After / X-RateLimit headers).',
+                    'evidence' => 'POST '.$path.' returned HTTP '.implode(', ', $statuses).' across '.$attempts.' sequential attempts with no throttle signal.',
+                ];
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Hijacking probe: checks each discovered subdomain for a dangling CNAME
+     * pointing at an unclaimed third-party cloud/SaaS resource (subdomain
+     * takeover). A takeover is only reported when the target provider's own
+     * "resource not found" signature is confirmed over HTTPS.
+     *
+     * @param  array<int, array{hostname: string, ip: string}>  $subdomains
+     * @return array<int, array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}>
+     */
+    public function probeSubdomainTakeover(array $subdomains): array
+    {
+        $findings = [];
+
+        foreach ($subdomains as $subdomain) {
+            $cnameTargets = $this->cnameFor($subdomain['hostname']);
+
+            foreach ($cnameTargets as $target) {
+                $provider = $this->takeoverProviderFor($target);
+
+                if ($provider === null) {
+                    continue;
+                }
+
+                $signature = $this->confirmTakeoverSignature($subdomain['hostname'], $subdomain['ip'], $provider['signatures']);
+
+                if ($signature !== null) {
+                    $findings[] = [
+                        'kind' => 'vulnerability',
+                        'severity' => 'critical',
+                        'category' => 'subdomain-takeover',
+                        'title' => 'Subdomain takeover confirmed on dangling CNAME',
+                        'description' => 'The subdomain points to an unclaimed '.$provider['name'].' resource. An attacker could claim the resource and serve arbitrary content or harvest session cookies under the root domain.',
+                        'evidence' => 'DNS CNAME '.$subdomain['hostname'].' → '.$target.'; HTTPS fetch matched provider signature "'.$signature.'".',
+                    ];
+                    break;
+                }
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Resolve CNAME records for a hostname (wrapped for testability).
+     *
+     * @return array<int, string>
+     */
+    protected function cnameFor(string $hostname): array
+    {
+        $records = @dns_get_record($hostname, DNS_CNAME);
+
+        return array_values(array_filter(array_map(
+            fn (array $record): string => rtrim((string) ($record['target'] ?? ''), '.'),
+            $records ?: []
+        )));
+    }
+
+    /**
+     * Discover candidate login endpoints from the captured page and from
+     * well-known default paths.
+     *
+     * @return array<int, string>
+     */
+    private function discoverLoginPaths(array $capture): array
+    {
+        $paths = [];
+
+        if (preg_match_all('/<form[^>]*action\s*=\s*["\']([^"\']+)["\']/i', $capture['body'] ?? '', $matches)) {
+            foreach ($matches[1] as $action) {
+                $normalized = ltrim(parse_url($action, PHP_URL_PATH) ?: $action, '/');
+
+                if ($normalized !== '' && str_contains(strtolower((string) $capture['body']), 'password')) {
+                    $paths[] = '/'.$normalized;
+                }
+            }
+        }
+
+        foreach (['/login', '/signin', '/auth/login', '/admin/login', '/user/login', '/api/login'] as $path) {
+            $paths[] = $path;
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Match a CNAME target against known takeover-prone providers.
+     *
+     * @return array{name: string, signatures: array<int, string>}|null
+     */
+    private function takeoverProviderFor(string $target): ?array
+    {
+        $providers = [
+            'GitHub Pages' => [
+                '/\.github\.io$/i',
+                ['There isn\'t a GitHub Pages site here.'],
+            ],
+            'AWS S3' => [
+                '/\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com$/i',
+                ['NoSuchBucket'],
+            ],
+            'Azure App Service' => [
+                '/\.(?:azurewebsites\.net|cloudapp\.net|trafficmanager\.net|azureedge\.net)$/i',
+                ['404 Web Site not found', 'There is no app hosted at this web address'],
+            ],
+            'Heroku' => [
+                '/\.(?:herokudns\.com|herokuapp\.com)$/i',
+                ['no such app'],
+            ],
+            'Netlify' => [
+                '/\.netlify\.(?:app|com)$/i',
+                ['Not Found - Request ID', 'Page Not Found'],
+            ],
+            'Surge.sh' => [
+                '/\.surge\.sh$/i',
+                ['404 Not Found', 'Not Found — Surge'],
+            ],
+            'Bitbucket' => [
+                '/\.bitbucket\.io$/i',
+                ['Repository not found'],
+            ],
+            'Pantheon' => [
+                '/\.pantheonsite\.io$/i',
+                ['The site you are looking for could not be found'],
+            ],
+        ];
+
+        foreach ($providers as $name => [$pattern, $signatures]) {
+            if (preg_match($pattern, $target)) {
+                return ['name' => $name, 'signatures' => $signatures];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch a subdomain over HTTPS and look for the provider's "unclaimed
+     * resource" signature.
+     *
+     * @param  array<int, string>  $signatures
+     */
+    private function confirmTakeoverSignature(string $hostname, string $ip, array $signatures): ?string
+    {
+        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        try {
+            $resp = Http::connectTimeout(3)->timeout(6)
+                ->withUserAgent('GardaCyber/1.0')
+                ->withOptions([
+                    'allow_redirects' => false,
+                    'verify' => false,
+                    'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
+                ])->get('https://'.$hostname.'/');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        foreach ($signatures as $signature) {
+            if (str_contains($resp->body(), $signature)) {
+                return $signature;
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool} */
     public function demoCapture(): array
     {
         return [
@@ -280,6 +825,9 @@ class SurfaceScanner
             'headers' => ['content-type' => ['text/html'], 'server' => ['nginx/1.24.0']],
             'body' => '<html><head><title>GardaCyber training fixture</title></head><body><h1>Hacked by training-team</h1><p>slot gacor jackpot maxwin</p></body></html>',
             'truncated' => false,
+            'blocked' => false,
+            'waf' => null,
+            'via_origin' => false,
         ];
     }
 
@@ -290,11 +838,12 @@ class SurfaceScanner
         $headers = $capture['headers'];
         $isHtml = str_contains(strtolower(implode(' ', $headers['content-type'] ?? [])), 'text/html');
 
-        if ($type !== 'incident' && $capture['status'] >= 200 && $capture['status'] < 300 && $isHtml) {
+        if ($type !== 'incident' && empty($capture['blocked']) && $capture['status'] >= 200 && $capture['status'] < 300 && $isHtml) {
             foreach ([
                 'strict-transport-security' => ['medium', 'HSTS header missing', 'Enable Strict-Transport-Security after verifying HTTPS across your site.'],
                 'content-security-policy' => ['low', 'Content Security Policy missing', 'Deploy a tested Content-Security-Policy to reduce browser injection impact.'],
                 'x-content-type-options' => ['low', 'MIME sniffing protection missing', 'Set X-Content-Type-Options: nosniff.'],
+                'x-frame-options' => ['medium', 'Clickjacking protection missing (X-Frame-Options)', 'Set X-Frame-Options: SAMEORIGIN (or a frame-ancestors CSP) to prevent UI redress / clickjacking attacks.'],
                 'referrer-policy' => ['low', 'Referrer policy missing', 'Set a Referrer-Policy appropriate for the application.'],
             ] as $header => [$severity, $title, $description]) {
                 if (empty($headers[$header])) {
@@ -303,7 +852,9 @@ class SurfaceScanner
             }
         }
 
-        if ($type !== 'vulnerability' && $isHtml) {
+        // A challenge page is the edge's copy, not the application's, so its
+        // text says nothing about whether the site was defaced or injected.
+        if ($type !== 'vulnerability' && empty($capture['blocked']) && $isHtml) {
             $spaced = preg_replace('/>\s*</', '> <', $capture['body']);
             $text = html_entity_decode(strip_tags($spaced ?? $capture['body']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 

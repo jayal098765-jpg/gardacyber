@@ -33,6 +33,10 @@ class FindingTemplateCatalog
             ['CORS misconfiguration allows arbitrary origins', 'misconfiguration', 'medium'],
             ['Open directory listing enabled', 'exposure', 'medium'],
             ['Subdomain takeover on dangling CNAME', 'subdomain-takeover', 'critical'],
+            ['Reflected XSS vector candidate', 'xss', 'high'],
+            ['Authentication endpoint lacks brute-force protection', 'auth-bruteforce', 'medium'],
+            ['Edge WAF challenged the automated assessment', 'waf', 'low'],
+            ['Origin server directly reachable behind CDN/WAF', 'waf-bypass', 'medium'],
             ['Unencrypted HTTP form submission', 'ssl-tls', 'low'],
         ];
     }
