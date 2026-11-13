@@ -19,7 +19,7 @@ class RunSurfaceScan implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 120;
+    public int $timeout = 240;
 
     public function __construct(public int $scanId) {}
 
@@ -38,7 +38,7 @@ class RunSurfaceScan implements ShouldQueue
             $subdomains = $scanner->discoverSubdomains($scan->group->root_domain);
             $openPorts = $scanner->probePorts($capture['ip']);
 
-            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, advanced injection, brute-force posture, and takeover indicators.');
+            $this->stage($scan, 2, 'Probing security headers, sensitive exposures, directory and backup paths, advanced injection, brute-force posture, and takeover indicators.');
 
             $findings = $scanner->analyze($capture, $scan->type);
             $findings = [...$findings, ...$scanner->wafFindings($capture, $scan->group->root_domain)];
@@ -50,6 +50,7 @@ class RunSurfaceScan implements ShouldQueue
                     ...$scanner->probeAdvancedXss($scan->group->root_domain, $capture['ip']),
                     ...$scanner->probeAuthBruteForceResistance($scan->group->root_domain, $capture['ip'], $capture),
                     ...$scanner->probeSubdomainTakeover($subdomains),
+                    ...$scanner->probeDirectoryExposure($scan->group->root_domain, $capture['ip'], $capture),
                 ];
 
                 $findings = [...$findings, ...$advancedFindings];
@@ -128,7 +129,9 @@ class RunSurfaceScan implements ShouldQueue
 
                 $message = 'Completed. Live perimeter scanned (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
 
-                if (! empty($capture['via_origin'])) {
+                if (! empty($capture['via_browser'])) {
+                    $message = 'Completed. The CDN/WAF challenge was cleared in a real browser session, so checks ran against the site as a verified visitor sees it (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
+                } elseif (! empty($capture['via_origin'])) {
                     $message = 'Completed. CDN/WAF edge bypassed; checks ran against origin '.$capture['ip'].' (HTTP '.$capture['status'].'). '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';
                 } elseif (! empty($capture['blocked'])) {
                     $message = 'Completed with limited coverage. The CDN/WAF blocked the scanner (HTTP '.$capture['status'].'), so header, exposure, and injection checks are partial. '.$vulnCount.' vulnerabilities and '.$incidentCount.' incident signals recorded.';

@@ -141,6 +141,11 @@ class ScanFlowTest extends TestCase
             {
                 return [];
             }
+
+            public function probeDirectoryExposure(string $hostname, string $ip, array $capture): array
+            {
+                return [];
+            }
         };
 
         $job = new RunSurfaceScan($scan->id);

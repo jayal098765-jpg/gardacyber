@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
@@ -14,9 +16,21 @@ class SurfaceScanner
      */
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+    /**
+     * Clearance the edge handed the browser handoff. Every later probe sends
+     * these cookies so `curl` arrives with an identity the edge has already
+     * vetted.
+     *
+     * @var array<int, array{name: string, value: string, domain: string}>
+     */
+    private array $edgeCookies = [];
+
+    private ?string $edgeUserAgent = null;
+
     public function __construct(
         private CdnFingerprint $fingerprint = new CdnFingerprint,
         private OriginDiscovery $origins = new OriginDiscovery,
+        private BrowserClearance $browser = new BrowserClearance,
     ) {}
 
     public function assertAllowed(string $hostname): void
@@ -148,16 +162,31 @@ class SurfaceScanner
      * so sending them keeps the assessment out of the challenge path far more
      * often than a bare user-agent swap does.
      *
+     * The client hints are derived from the active identity: a hint set that
+     * disagrees with the user agent is itself a bot signal, and after a browser
+     * handoff the version is the real installed browser, not a constant.
+     *
      * @return array<string, string>
      */
     private function browserHeaders(): array
     {
+        $agent = $this->edgeUserAgent ?? self::USER_AGENT;
+        $major = preg_match('#Chrome/(\d+)#', $agent, $matches) === 1 ? (int) $matches[1] : 124;
+
+        if (str_contains($agent, 'Windows NT')) {
+            $platform = '"Windows"';
+        } elseif (str_contains($agent, 'Macintosh')) {
+            $platform = '"macOS"';
+        } else {
+            $platform = '"Linux"';
+        }
+
         return [
             'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language' => 'en-US,en;q=0.9',
-            'Sec-Ch-Ua' => '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'Sec-Ch-Ua' => '"Chromium";v="'.$major.'", "Google Chrome";v="'.$major.'", "Not-A.Brand";v="99"',
             'Sec-Ch-Ua-Mobile' => '?0',
-            'Sec-Ch-Ua-Platform' => '"Windows"',
+            'Sec-Ch-Ua-Platform' => $platform,
             'Sec-Fetch-Dest' => 'document',
             'Sec-Fetch-Mode' => 'navigate',
             'Sec-Fetch-Site' => 'none',
@@ -165,6 +194,55 @@ class SurfaceScanner
             'Upgrade-Insecure-Requests' => '1',
             'Cache-Control' => 'no-cache',
             'Pragma' => 'no-cache',
+        ];
+    }
+
+    /**
+     * A probe request carrying the same identity the edge has already vetted:
+     * the browser's clearance cookies and user agent when a handoff happened,
+     * otherwise the plain browser headers.
+     *
+     * @return PendingRequest
+     */
+    private function probeRequest(string $hostname, string $ip, float $connectTimeout = 2, float $timeout = 4)
+    {
+        return $this->applyProbeIdentity(
+            Http::connectTimeout($connectTimeout)->timeout($timeout),
+            $hostname,
+            $ip,
+        );
+    }
+
+    /**
+     * Attach the shared probe identity plus the pinned-origin options.
+     *
+     * @param  PendingRequest  $request
+     * @return PendingRequest
+     */
+    private function applyProbeIdentity($request, string $hostname, string $ip, int $port = 443)
+    {
+        $request = $request
+            ->withHeaders($this->browserHeaders())
+            ->withUserAgent($this->edgeUserAgent ?? self::USER_AGENT)
+            ->withOptions($this->resolveOptions($hostname, $ip, $port));
+
+        if ($this->edgeCookies !== []) {
+            $request = $request->withHeaders(['Cookie' => $this->browser->cookieHeader($this->edgeCookies)]);
+        }
+
+        return $request;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveOptions(string $hostname, string $ip, int $port = 443): array
+    {
+        return [
+            'allow_redirects' => false,
+            'proxy' => '',
+            'verify' => false,
+            'curl' => [CURLOPT_RESOLVE => [$hostname.':'.$port.':'.$this->pin($ip)]],
         ];
     }
 
@@ -198,12 +276,14 @@ class SurfaceScanner
 
     /**
      * Classify the edge response and, when a WAF challenge blocked the scan,
-     * re-capture the site straight from a discovered origin address so the
-     * assessment can continue. No challenge is ever solved: if no origin can
-     * be confirmed the capture is returned flagged as blocked.
+     * re-capture the site from either a discovered origin address or a real
+     * browser that has passed the challenge. No challenge is bypassed by
+     * forging anything: the origin is fetched as the application serves it,
+     * and the browser path simply lets the challenge's own JavaScript run.
+     * If neither works the capture is returned flagged as blocked.
      *
      * @param  array{ip: string, status: int, headers: array, body: string, truncated: bool}  $capture
-     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool}
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool, via_browser: bool}
      */
     private function withWafAnalysis(string $hostname, array $capture): array
     {
@@ -213,6 +293,7 @@ class SurfaceScanner
         $capture['waf'] = $detection;
         $capture['blocked'] = $blocked;
         $capture['via_origin'] = false;
+        $capture['via_browser'] = false;
 
         if (! $blocked || ! (bool) config('scanner.waf_bypass', true)) {
             return $capture;
@@ -220,16 +301,64 @@ class SurfaceScanner
 
         $originCapture = $this->bypassWaf($hostname);
 
-        if ($originCapture === null) {
+        if ($originCapture !== null) {
+            return [
+                ...$originCapture,
+                'waf' => $detection,
+                'blocked' => false,
+                'via_origin' => true,
+                'via_browser' => false,
+                'edge_status' => $capture['status'],
+            ];
+        }
+
+        // Origin discovery came up empty. Fall back to executing the
+        // challenge exactly as a visitor's browser would; when it clears, the
+        // clearance identity is reused by every probe that follows.
+        $browserCapture = $this->browserCapture($hostname, $capture['ip']);
+
+        if ($browserCapture === null) {
             return $capture;
         }
 
         return [
-            ...$originCapture,
+            ...$browserCapture,
             'waf' => $detection,
             'blocked' => false,
-            'via_origin' => true,
+            'via_origin' => false,
+            'via_browser' => true,
             'edge_status' => $capture['status'],
+        ];
+    }
+
+    /**
+     * Run the edge's interstitial in a headless browser and keep the
+     * clearance cookies it earns. Public so tests can stub the handoff.
+     *
+     * @return array{ip: string, status: int, headers: array, body: string, truncated: bool}|null
+     */
+    public function browserCapture(string $hostname, string $ip): ?array
+    {
+        if (! (bool) config('scanner.browser_bypass', true)) {
+            return null;
+        }
+
+        $result = $this->browser->solve($hostname, $ip);
+
+        if ($result === null) {
+            return null;
+        }
+
+        $this->edgeCookies = $result['cookies'];
+        $this->edgeUserAgent = $result['user_agent'];
+
+        return [
+            'ip' => $ip,
+            'status' => $result['status'],
+            'headers' => ['content-type' => ['text/html']],
+            'body' => $result['body'],
+            'truncated' => false,
+            'title' => $result['title'],
         ];
     }
 
@@ -312,6 +441,13 @@ class SurfaceScanner
      */
     public function wafFindings(array $capture, string $hostname): array
     {
+        // A browser-cleared capture is the application as served to a visitor
+        // who passed the edge's own check. Nothing was bypassed and the
+        // challenge is gone, so there is no edge finding to report.
+        if (! empty($capture['via_browser'])) {
+            return [];
+        }
+
         $waf = $capture['waf'] ?? null;
         $provider = is_array($waf) && isset($waf['provider']) ? (string) $waf['provider'] : 'edge WAF';
 
@@ -350,7 +486,6 @@ class SurfaceScanner
     public function probeActiveVulnerabilities(string $hostname, string $ip): array
     {
         $findings = [];
-        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
         $baseUrl = 'https://'.$hostname;
 
         // 1. Exposure Probes
@@ -394,13 +529,7 @@ class SurfaceScanner
 
         foreach ($exposurePaths as $path => $probe) {
             try {
-                $resp = Http::connectTimeout(2)->timeout(4)
-                    ->withUserAgent('GardaCyber/1.0')
-                    ->withOptions([
-                        'allow_redirects' => false,
-                        'verify' => false,
-                        'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
-                    ])->get($baseUrl.$path);
+                $resp = $this->probeRequest($hostname, $ip)->get($baseUrl.$path);
 
                 if ($resp->status() === 200 && str_contains($resp->body(), $probe['match'])) {
                     $findings[] = [
@@ -422,10 +551,7 @@ class SurfaceScanner
 
         // 3. SQL Error Disclosure Probe
         try {
-            $resp = Http::connectTimeout(2)->timeout(4)
-                ->withUserAgent('GardaCyber/1.0')
-                ->withOptions(['allow_redirects' => false, 'verify' => false, 'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]]])
-                ->get($baseUrl.'/?id=1%27%22');
+            $resp = $this->probeRequest($hostname, $ip)->get($baseUrl.'/?id=1%27%22');
 
             $sqlErrors = [
                 'You have an error in your SQL syntax',
@@ -468,7 +594,6 @@ class SurfaceScanner
         $findings = [];
         $marker = 'garda_'.substr(md5($hostname), 0, 8);
         $baseUrl = 'https://'.$hostname;
-        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
 
         $parameters = ['q', 'search', 'term', 's', 'query', 'id', 'page', 'callback', 'next', 'url', 'redirect', 'lang'];
 
@@ -507,13 +632,8 @@ class SurfaceScanner
                 };
 
                 try {
-                    $resp = Http::connectTimeout(2)->timeout(4)
-                        ->withUserAgent('GardaCyber/1.0')
-                        ->withOptions([
-                            'allow_redirects' => false,
-                            'verify' => false,
-                            'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
-                        ])->get($baseUrl.'/?'.http_build_query([$parameter => $payload]));
+                    $resp = $this->probeRequest($hostname, $ip)
+                        ->get($baseUrl.'/?'.http_build_query([$parameter => $payload]));
 
                     if ($resp->status() !== 200) {
                         continue;
@@ -577,7 +697,6 @@ class SurfaceScanner
         $username = 'garda_probe_'.substr(md5($hostname), 0, 8).'@example.invalid';
         $password = 'invalid-password-garda-probe';
         $baseUrl = 'https://'.$hostname;
-        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
 
         foreach ($loginPaths as $path) {
             $statuses = [];
@@ -587,13 +706,8 @@ class SurfaceScanner
 
             for ($i = 0; $i < $attempts; $i++) {
                 try {
-                    $resp = Http::connectTimeout(2)->timeout(4)
-                        ->withUserAgent('GardaCyber/1.0')
-                        ->withOptions([
-                            'allow_redirects' => false,
-                            'verify' => false,
-                            'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
-                        ])->asForm()->post($baseUrl.$path, [
+                    $resp = $this->probeRequest($hostname, $ip)
+                        ->asForm()->post($baseUrl.$path, [
                             'email' => $username,
                             'username' => $username,
                             'password' => $password,
@@ -793,16 +907,8 @@ class SurfaceScanner
      */
     private function confirmTakeoverSignature(string $hostname, string $ip, array $signatures): ?string
     {
-        $pinnedIp = str_contains($ip, ':') ? '['.$ip.']' : $ip;
-
         try {
-            $resp = Http::connectTimeout(3)->timeout(6)
-                ->withUserAgent('GardaCyber/1.0')
-                ->withOptions([
-                    'allow_redirects' => false,
-                    'verify' => false,
-                    'curl' => [CURLOPT_RESOLVE => [$hostname.':443:'.$pinnedIp]],
-                ])->get('https://'.$hostname.'/');
+            $resp = $this->probeRequest($hostname, $ip, 3, 6)->get('https://'.$hostname.'/');
         } catch (\Throwable) {
             return null;
         }
@@ -814,6 +920,336 @@ class SurfaceScanner
         }
 
         return null;
+    }
+
+    /**
+     * Directory and backup-file brute force over a curated, read-only list of
+     * paths. Every request is a plain GET: nothing is uploaded, submitted, or
+     * deleted, and no traversal payload is sent.
+     *
+     * A candidate is only reported when the response is provably different
+     * from the application's own catch-all behaviour: the soft-404 baseline
+     * (a random path) and the homepage (single-page-app routers) must both
+     * differ, and the content must carry real proof — a filename needle, an
+     * index listing, a panel marker, or a download content type.
+     *
+     * @param  array<string, mixed>  $capture
+     * @return array<int, array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}>
+     */
+    public function probeDirectoryExposure(string $hostname, string $ip, array $capture): array
+    {
+        if (! (bool) config('scanner.dir_bruteforce', true)) {
+            return [];
+        }
+
+        // The edge is answering, so every path would describe the WAF.
+        if (! empty($capture['blocked'])) {
+            return [];
+        }
+
+        $paths = config('scanner.dir_bruteforce_paths', []);
+
+        if (! is_array($paths) || $paths === []) {
+            return [];
+        }
+
+        $baseUrl = 'https://'.$hostname;
+        $deadline = microtime(true) + max(1.0, (float) config('scanner.dir_bruteforce_budget', 20));
+        $timeout = min(8.0, max(2.0, (float) config('scanner.dir_bruteforce_timeout', 4)));
+
+        $baseline = $this->dirBaseline($hostname, $ip);
+        $homepage = $this->responseSignature((string) ($capture['body'] ?? ''));
+
+        $findings = [];
+        $maxFindings = 6;
+        $requested = array_values(array_unique(array_map(
+            fn (mixed $path): string => '/'.ltrim((string) $path, '/'),
+            $paths
+        )));
+
+        foreach (array_chunk($requested, 8) as $chunk) {
+            if (microtime(true) >= $deadline || count($findings) >= $maxFindings) {
+                break;
+            }
+
+            $responses = Http::pool(function ($pool) use ($chunk, $hostname, $ip, $baseUrl, $timeout): void {
+                foreach ($chunk as $index => $path) {
+                    $this->applyProbeIdentity(
+                        $pool->as((string) $index)->connectTimeout(2)->timeout($timeout),
+                        $hostname,
+                        $ip,
+                    )->get($baseUrl.$path);
+                }
+            });
+
+            foreach ($chunk as $index => $path) {
+                $response = $responses[(string) $index] ?? null;
+
+                if (! $response instanceof Response) {
+                    continue;
+                }
+
+                $finding = $this->directoryFinding(
+                    $path,
+                    $response->status(),
+                    $response->headers(),
+                    $response->body(),
+                    $baseline,
+                    $homepage,
+                );
+
+                if ($finding === null) {
+                    continue;
+                }
+
+                $findings[] = $finding;
+
+                if (count($findings) >= $maxFindings) {
+                    break;
+                }
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Fetch a path that cannot exist so the application's "not found"
+     * behaviour can be compared against every candidate.
+     *
+     * @return array{status: int, signature: string}|null
+     */
+    private function dirBaseline(string $hostname, string $ip): ?array
+    {
+        $path = '/garda-missing-'.bin2hex(random_bytes(6));
+
+        try {
+            $response = $this->probeRequest($hostname, $ip)->get('https://'.$hostname.$path);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return [
+            'status' => $response->status(),
+            'signature' => $this->responseSignature($response->body()),
+        ];
+    }
+
+    /**
+     * Compact, binary-safe fingerprint of a response body used to decide
+     * whether two responses are the same page.
+     */
+    private function responseSignature(string $body): string
+    {
+        if ($body === '') {
+            return '';
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', strip_tags($body));
+
+        if (! is_string($normalized)) {
+            return substr($body, 0, 256);
+        }
+
+        return trim(substr($normalized, 0, 1024));
+    }
+
+    /**
+     * Decide whether one candidate response proves the path exists.
+     *
+     * @param  array<string, array<int, string>>  $headers
+     * @param  array{status: int, signature: string}|null  $baseline
+     * @return array{kind: string, severity: string, category: string, title: string, description: string, evidence: string}|null
+     */
+    private function directoryFinding(string $path, int $status, array $headers, string $body, ?array $baseline, string $homepage): ?array
+    {
+        $restricted = in_array($status, [401, 403], true);
+
+        // 404/410 are misses, 3xx are redirect noise, 5xx is the server's own
+        // problem. Only an authorization challenge is interesting.
+        if (! $restricted && ($status < 200 || $status >= 400)) {
+            return null;
+        }
+
+        $lowerHeaders = array_change_key_case($headers, CASE_LOWER);
+
+        // A mid-scan challenge is the edge talking, not the application.
+        if ($this->fingerprint->isChallenged(null, $lowerHeaders, $body, $status)) {
+            return null;
+        }
+
+        $signature = $this->responseSignature($body);
+
+        // The application's catch-all answered: a single-page-app router
+        // serves the homepage for every path, and a soft 404 serves the same
+        // page as the random control path. Neither is a hit.
+        if ($signature !== '' && $signature === $homepage) {
+            return null;
+        }
+
+        if ($signature !== '' && $baseline !== null && $signature === $baseline['signature']) {
+            return null;
+        }
+
+        if ($restricted) {
+            return [
+                'kind' => 'vulnerability',
+                'severity' => 'low',
+                'category' => 'misconfiguration',
+                'title' => 'Restricted administrative or backup path is reachable',
+                'description' => 'The path answers with an authorization challenge rather than a not-found response, which discloses that a protected interface or file exists at this location. No content was read.',
+                'evidence' => 'GET '.$path.' returned HTTP '.$status.' while a random control path returned HTTP '.($baseline['status'] ?? 0).'; response bodies differ.',
+            ];
+        }
+
+        $contentType = strtolower(trim(implode(' ', (array) ($lowerHeaders['content-type'] ?? []))));
+        $needle = $this->contentNeedle($path, $body);
+        $marker = $this->panelMarker($path, $body);
+
+        // A download is only proof when the path names a file and the server
+        // actually streamed something other than an HTML page.
+        $servedAsFile = preg_match('/\.[a-z0-9]{2,6}$/i', $path) === 1
+            && $contentType !== ''
+            && ! str_contains($contentType, 'text/html')
+            && stripos($body, '<html') === false;
+
+        if ($needle === null && $marker === null && ! $servedAsFile) {
+            return null;
+        }
+
+        $proof = $needle ?? $marker ?? ('served as '.$contentType);
+        $severity = $this->fileSeverity($path, $needle !== null || $servedAsFile);
+        $category = $needle !== null || $servedAsFile ? 'exposure' : 'misconfiguration';
+
+        return [
+            'kind' => 'vulnerability',
+            'severity' => $severity,
+            'category' => $category,
+            'title' => $category === 'exposure'
+                ? 'Sensitive file or backup reachable without authentication'
+                : 'Administrative or diagnostic interface accessible without authentication',
+            'description' => $category === 'exposure'
+                ? 'A file that should not be public is served directly: configuration, source, database, or backup content that commonly carries credentials and full application data.'
+                : 'An administrative, diagnostic, or monitoring interface answers without an authentication challenge, exposing operational detail and sometimes state-changing actions.',
+            'evidence' => 'GET '.$path.' returned HTTP '.$status.' ('.$contentType.') and '.$proof.'; a random control path returned HTTP '.($baseline['status'] ?? 0).'.',
+        ];
+    }
+
+    /**
+     * Body or magic-byte evidence that a path returned the file it names
+     * instead of an HTML error page.
+     */
+    private function contentNeedle(string $path, string $body): ?string
+    {
+        $rules = [
+            ['#^/\.env#', ['APP_KEY=', 'DB_PASSWORD=', 'DB_HOST=']],
+            ['#^/\.git/#', ['ref: refs/', 'repositoryformatversion', '[core]']],
+            ['#^/\.svn/#', ['svn://', 'dir']],
+            ['#^/composer\.(json|lock)$#', ['"require"', '"packages"', '"content-hash"']],
+            ['#^/package\.json$#', ['"dependencies"', '"devDependencies"']],
+            ['#^/phpinfo\.php$#', ['phpinfo()', 'PHP Version']],
+            ['#^/server-status$#', ['Apache Server Status', 'Server uptime']],
+            ['#^/actuator#', ['"activeProfiles"', '"propertySources"', '"status":"UP"', '"status": "UP"']],
+            ['#^/\.DS_Store$#', ["\x00\x00\x00\x01Bud1"]],
+        ];
+
+        foreach ($rules as [$pattern, $signatures]) {
+            if (preg_match($pattern, $path) !== 1) {
+                continue;
+            }
+
+            foreach ($signatures as $signature) {
+                if (str_contains($body, $signature)) {
+                    return 'the body contains the file signature "'.trim($signature).'"';
+                }
+            }
+        }
+
+        if (str_ends_with($path, '.zip') && str_starts_with($body, "PK\x03\x04")) {
+            return 'the body starts with the ZIP magic bytes';
+        }
+
+        if ((str_ends_with($path, '.tar.gz') || str_ends_with($path, '.tgz') || str_ends_with($path, '.sql.gz'))
+            && str_starts_with($body, "\x1f\x8b")) {
+            return 'the body starts with the gzip magic bytes';
+        }
+
+        if (str_ends_with($path, '.sql') && preg_match('/^(?:--|CREATE TABLE|INSERT INTO|DROP TABLE)/mi', $body) === 1) {
+            return 'the body contains SQL dump statements';
+        }
+
+        if (str_ends_with($path, '.bak') && str_contains($body, '<?php')) {
+            return 'the body contains PHP source code';
+        }
+
+        return null;
+    }
+
+    /**
+     * Directory listings and known administrative/diagnostic interfaces,
+     * which are HTML and therefore cannot be proven by content type alone.
+     */
+    private function panelMarker(string $path, string $body): ?string
+    {
+        if (stripos($body, '<title>Index of /') !== false || stripos($body, 'Directory listing for /') !== false) {
+            return 'the body renders a directory index listing';
+        }
+
+        $panels = [
+            '/phpmyadmin' => ['phpMyAdmin', 'pma_username'],
+            '/pma' => ['phpMyAdmin'],
+            '/adminer' => ['Adminer'],
+            '/wp-admin' => ['wp-admin', 'wp-login'],
+            '/wp-login.php' => ['wp-submit', 'user_login'],
+            '/administrator' => ['Joomla!', 'com_login'],
+            '/jenkins' => ['Jenkins'],
+            '/grafana' => ['Grafana'],
+            '/kibana' => ['kibana'],
+            '/swagger-ui' => ['swagger-ui'],
+            '/api-docs' => ['openapi', 'swagger'],
+            '/console' => ['Web Console', 'console'],
+            '/.git/config' => ['[core]'],
+        ];
+
+        foreach ($panels as $candidate => $signatures) {
+            if (! str_starts_with($path, $candidate)) {
+                continue;
+            }
+
+            foreach ($signatures as $signature) {
+                if (stripos($body, $signature) !== false) {
+                    return 'the body contains the interface marker "'.$signature.'"';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Severity by what the path itself implies. Configuration, source,
+     * database, and archive files hand over credentials or the full dataset.
+     */
+    private function fileSeverity(string $path, bool $isFile): string
+    {
+        $critical = [
+            '#^/\.env#i',
+            '#^/\.git/#i',
+            '#^/\.svn/#i',
+            '#^/\.DS_Store$#i',
+            '#\.(?:zip|tar|tgz|tar\.gz|sql|sql\.gz|bak|old|backup|7z|rar)$#i',
+            '#(?:^|/)(?:backup|dump|db)#i',
+            '#composer\.(?:json|lock)$#i',
+            '#\.(?:pem|key|pfx|p12)$#i',
+        ];
+
+        foreach ($critical as $pattern) {
+            if (preg_match($pattern, $path) === 1) {
+                return 'critical';
+            }
+        }
+
+        return $isFile ? 'high' : 'medium';
     }
 
     /** @return array{ip: string, status: int, headers: array, body: string, truncated: bool, blocked: bool, waf: array|null, via_origin: bool} */
@@ -836,9 +1272,15 @@ class SurfaceScanner
     {
         $findings = [];
         $headers = $capture['headers'];
-        $isHtml = str_contains(strtolower(implode(' ', $headers['content-type'] ?? [])), 'text/html');
+        $viaBrowser = ! empty($capture['via_browser']);
 
-        if ($type !== 'incident' && empty($capture['blocked']) && $capture['status'] >= 200 && $capture['status'] < 300 && $isHtml) {
+        // A browser-cleared capture carries the rendered DOM, not the edge's
+        // origin response, so its header bag is synthetic. Judging security
+        // headers from it would report every header as missing.
+        $isHtml = $viaBrowser
+            || str_contains(strtolower(implode(' ', $headers['content-type'] ?? [])), 'text/html');
+
+        if ($type !== 'incident' && ! $viaBrowser && empty($capture['blocked']) && $capture['status'] >= 200 && $capture['status'] < 300 && $isHtml) {
             foreach ([
                 'strict-transport-security' => ['medium', 'HSTS header missing', 'Enable Strict-Transport-Security after verifying HTTPS across your site.'],
                 'content-security-policy' => ['low', 'Content Security Policy missing', 'Deploy a tested Content-Security-Policy to reduce browser injection impact.'],

@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
+
 /**
  * Finds the real origin server behind a CDN/WAF by inspecting the public DNS
- * footprint of the domain: SPF mechanisms, MX hosts, and subdomains whose A
- * records still point straight at the origin instead of the edge.
+ * footprint of the domain: SPF mechanisms, MX hosts, subdomains whose A records
+ * still point straight at the origin instead of the edge, and hostnames the
+ * domain has published certificates for.
  *
- * This is passive DNS analysis of the domain being assessed. Nothing is sent
- * to the provider's control plane and no account is touched.
+ * This is passive analysis of the domain being assessed. Nothing is sent to the
+ * provider's control plane and no account is touched.
  */
 class OriginDiscovery
 {
@@ -46,6 +49,7 @@ class OriginDiscovery
             ...$this->fromSpf($rootDomain),
             ...$this->fromMx($rootDomain, $limit, $deadline),
             ...$this->fromSubdomains($rootDomain, $limit, $deadline),
+            ...$this->fromCertificateTransparency($rootDomain, $limit, $deadline),
         ];
 
         $unique = [];
@@ -153,6 +157,106 @@ class OriginDiscovery
         }
 
         return $candidates;
+    }
+
+    /**
+     * Hostnames the domain has obtained certificates for, taken from the public
+     * certificate transparency log. Certs are often issued for internal or
+     * legacy names (`direct.`, `legacy.`, `dev.`) that were never proxied by
+     * the CDN, and those still resolve straight at the origin.
+     *
+     * @return array<int, array{ip: string, host: string, source: string}>
+     */
+    public function fromCertificateTransparency(string $rootDomain, int $limit = 8, ?float $deadline = null): array
+    {
+        if (! (bool) config('scanner.crt_sh', true)) {
+            return [];
+        }
+
+        $names = $this->crtShNames($rootDomain, max(1, (int) config('scanner.crt_sh_budget', 30)));
+
+        $candidates = [];
+
+        foreach ($names as $host) {
+            if ($this->exhausted($candidates, $limit, $deadline)) {
+                break;
+            }
+
+            foreach ($this->resolveA($host) as $ip) {
+                if ($this->isUsableOrigin($ip)) {
+                    $candidates[] = ['ip' => $ip, 'host' => $host, 'source' => 'certificate transparency host'];
+                }
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Ask crt.sh which names sit under the domain. Origin-looking labels are
+     * inspected first because the edge almost never fronts them.
+     *
+     * @return array<int, string>
+     */
+    protected function crtShNames(string $rootDomain, int $limit = 30): array
+    {
+        try {
+            $response = Http::connectTimeout(3)
+                ->timeout(6)
+                ->withUserAgent('GardaCyber/1.0 (+passive certificate transparency lookup)')
+                ->get('https://crt.sh/', ['q' => '%.'.$rootDomain, 'output' => 'json']);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $entries = $response->json();
+
+        if (! is_array($entries)) {
+            return [];
+        }
+
+        $suffix = '.'.strtolower(trim($rootDomain, '.'));
+        $names = [];
+
+        foreach ($entries as $entry) {
+            $published = is_array($entry) ? ($entry['name_value'] ?? $entry['common_name'] ?? null) : null;
+
+            if (! is_string($published)) {
+                continue;
+            }
+
+            foreach (preg_split('/\r\n|\n|\r/', $published) ?: [] as $name) {
+                $name = strtolower(trim($name));
+                $name = preg_replace('/^\*\./', '', $name) ?? $name;
+                $name = trim($name, '.');
+
+                if ($name === '' || ! str_ends_with($name, $suffix) || str_contains($name, '*')) {
+                    continue;
+                }
+
+                $names[$name] = true;
+            }
+        }
+
+        $ordered = array_keys($names);
+
+        usort($ordered, fn (string $a, string $b): int => $this->originRank($b) <=> $this->originRank($a));
+
+        return array_slice($ordered, 0, max(1, $limit));
+    }
+
+    /**
+     * Rank a hostname by whether its leftmost label is a known origin prefix.
+     */
+    private function originRank(string $host): int
+    {
+        $label = strstr($host, '.', true) ?: $host;
+
+        return in_array($label, self::ORIGIN_PREFIXES, true) ? 1 : 0;
     }
 
     /**

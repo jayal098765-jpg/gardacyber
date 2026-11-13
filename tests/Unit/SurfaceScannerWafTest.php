@@ -48,6 +48,11 @@ class SurfaceScannerWafTest extends TestCase
             {
                 return $this->originCapture;
             }
+
+            public function browserCapture(string $hostname, string $ip): ?array
+            {
+                return null;
+            }
         };
     }
 
