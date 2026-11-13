@@ -65,7 +65,7 @@ final class BackgroundScanStarter
         }
 
         try {
-            $this->bootWorker();
+            $this->bootWorkers();
         } catch (\Throwable $e) {
             report($e);
         } finally {
@@ -74,9 +74,27 @@ final class BackgroundScanStarter
     }
 
     /**
+     * Boot the configured number of one-shot workers. Workers exit once the
+     * queue is empty, so the second worker mostly adds resilience (if one
+     * process dies) and lets several queued scans run in parallel.
+     *
+     * @return array<int, InvokedProcess>
+     */
+    public function bootWorkers(): array
+    {
+        $count = max(1, (int) config('scanner.async_worker_count', 2));
+        $workers = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $workers[] = $this->bootWorker();
+        }
+
+        return $workers;
+    }
+
+    /**
      * Start `queue:work` in a detached child process. The array form is used
-     * so no shell is involved and paths with spaces (PHP_BINARY on Windows)
-     * are handled correctly.
+     * so no shell is involved and paths with spaces are handled correctly.
      */
     public function bootWorker(): InvokedProcess
     {
@@ -86,7 +104,7 @@ final class BackgroundScanStarter
             ->timeout(360)
             ->start(
                 [
-                    PHP_BINARY,
+                    $this->phpBinary(),
                     'artisan',
                     'queue:work',
                     'database',
@@ -100,6 +118,30 @@ final class BackgroundScanStarter
                     file_put_contents($log, trim($line).PHP_EOL, FILE_APPEND);
                 }
             );
+    }
+
+    /**
+     * The PHP CLI binary to run the worker with. Web SAPIs report themselves
+     * via PHP_BINARY (php-cgi.exe under CGI, for example), which cannot run
+     * console commands, so the CLI binary next to it is used instead.
+     */
+    public function phpBinary(): string
+    {
+        $configured = config('scanner.php_binary');
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return $configured;
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $cli = dirname(PHP_BINARY).DIRECTORY_SEPARATOR.'php.exe';
+
+            if (is_file($cli)) {
+                return $cli;
+            }
+        }
+
+        return PHP_BINARY;
     }
 
     private function queueIsSync(): bool

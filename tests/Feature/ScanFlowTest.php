@@ -189,6 +189,82 @@ class ScanFlowTest extends TestCase
         $this->assertEquals(Scan::STATUS_STOPPED, $scan->fresh()->status);
     }
 
+    public function test_queued_scan_beyond_grace_runs_inline(): void
+    {
+        $user = $this->signedInUser();
+        $group = AssetGroup::factory()->create([
+            'user_id' => $user->id,
+            'root_domain' => 'example.com',
+        ]);
+
+        $scan = Scan::create([
+            'asset_group_id' => $group->id,
+            'type' => Scan::TYPE_FULL,
+            'status' => Scan::STATUS_QUEUED,
+            'options' => ['stage' => 0],
+            'stage_count' => 8,
+        ]);
+
+        $scan->forceFill(['created_at' => now()->subSeconds(30)])->save();
+
+        $fakeScanner = new class extends SurfaceScanner
+        {
+            public function capture(string $hostname): array
+            {
+                return [
+                    'ip' => '93.184.216.34',
+                    'status' => 200,
+                    'headers' => ['content-type' => ['text/html; charset=utf-8'], 'server' => ['nginx/1.24.0']],
+                    'body' => '<html><head><title>Example Domain</title></head><body><h1>Example</h1></body></html>',
+                    'truncated' => false,
+                ];
+            }
+
+            public function discoverSubdomains(string $rootDomain): array
+            {
+                return [];
+            }
+
+            public function probePorts(string $ip): array
+            {
+                return [80, 443];
+            }
+
+            public function probeActiveVulnerabilities(string $hostname, string $ip): array
+            {
+                return [];
+            }
+
+            public function probeAdvancedXss(string $hostname, string $ip): array
+            {
+                return [];
+            }
+
+            public function probeAuthBruteForceResistance(string $hostname, string $ip, array $capture): array
+            {
+                return [];
+            }
+
+            public function probeSubdomainTakeover(array $subdomains): array
+            {
+                return [];
+            }
+
+            public function probeDirectoryExposure(string $hostname, string $ip, array $capture): array
+            {
+                return [];
+            }
+        };
+
+        $this->app->instance(SurfaceScanner::class, $fakeScanner);
+
+        $this->actingAs($user)
+            ->getJson(route('scans.progress', $scan))
+            ->assertOk()
+            ->assertJsonPath('finished', true)
+            ->assertJsonPath('status', 'completed');
+    }
+
     public function test_user_cannot_touch_other_users_scan(): void
     {
         $owner = $this->signedInUser();

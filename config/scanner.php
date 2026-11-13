@@ -44,6 +44,22 @@ return [
     // progress. Set to false to fall back to synchronous execution.
     'async_worker' => env('SCANNER_ASYNC_WORKER', true),
 
+    // The PHP CLI binary used to boot the background worker. Leave empty to
+    // auto-detect (the `php.exe` next to the current SAPI binary on Windows,
+    // otherwise PHP_BINARY). Web SAPIs like php-cgi must not be used here.
+    'php_binary' => env('SCANNER_PHP_BINARY'),
+
+    // How many one-shot workers to boot per launch. Workers exit when the
+    // queue is empty, so a second worker mostly adds resilience and lets
+    // simultaneous scans run in parallel.
+    'async_worker_count' => max(1, (int) env('SCANNER_ASYNC_WORKER_COUNT', 2)),
+
+    // Seconds a scan may sit queued (in a sync-queue environment) while the
+    // background worker is given a chance to pick it up. Once exceeded, the
+    // next progress poll runs the scan inline so it can never stay stuck in
+    // the queued state.
+    'async_worker_grace' => (int) env('SCANNER_ASYNC_WORKER_GRACE', 8),
+
     // Read-only directory / backup-file probing. Requests are plain GETs
     // against a curated path list; nothing is written, uploaded, or deleted.
     'dir_bruteforce' => env('SCANNER_DIR_BRUTEFORCE', true),

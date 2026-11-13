@@ -2908,3 +2908,33 @@ body.sidebar-is-open { overflow: hidden; }
   }
 }
 
+
+/* ---- Live scan console: movement ---- */
+.scan-console.is-running .pg-fill {
+  background-image: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 40%, var(--accent) 80%);
+  background-size: 200% 100%;
+  animation: scanFlow 1.2s linear infinite;
+}
+
+@keyframes scanFlow {
+  from { background-position: 0% 0; }
+  to { background-position: 200% 0; }
+}
+
+.scan-console.is-running .pg-track-lg {
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.18);
+}
+
+.scan-console.is-running .pg-stage.running .pg-stage-name {
+  animation: stagePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes stagePulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.scan-console.is-running .scan-eta {
+  color: var(--accent-hover, #a78bfa);
+}
+

@@ -7,6 +7,7 @@ use App\Models\AssetGroup;
 use App\Models\Scan;
 use App\Services\BackgroundScanStarter;
 use App\Services\ScanProgressService;
+use App\Services\SecurityRatingService;
 use App\Services\SurfaceScanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -105,20 +106,37 @@ class ScanController extends Controller
         abort_unless($scan->group->user_id === $request->user()->id, 404);
 
         if ($scan->status === Scan::STATUS_QUEUED) {
-            if (config('queue.default') === 'sync' && (bool) config('scanner.async_worker', true)) {
-                // The worker boot may have raced the redirect; start it lazily
-                // instead of running the scan inline (which would hold this
-                // request open for the whole scan).
-                $starter->startIfNeeded();
-            } else {
-                // No background worker infrastructure: run the scan inline so
-                // a queued scan still progresses (legacy sync behavior).
-                (new RunSurfaceScan($scan->id))->handle($scanner);
-                $scan->refresh();
-            }
+            $this->driveQueuedScan($scan, $scanner, $starter);
         }
 
         return response()->json($progress->progress($scan));
+    }
+
+    /**
+     * Make sure a queued scan moves forward. On a sync queue connection the
+     * background worker gets a short grace window to claim the job; if it
+     * has not, the scan runs inline so it can never be stuck queued forever.
+     */
+    private function driveQueuedScan(Scan $scan, SurfaceScanner $scanner, BackgroundScanStarter $starter): void
+    {
+        if (config('queue.default') !== 'sync') {
+            // A real queue worker is expected to claim the job.
+            return;
+        }
+
+        if (config('scanner.async_worker', true)) {
+            $grace = max(0, (int) config('scanner.async_worker_grace', 8));
+            $queuedFor = abs(now()->diffInSeconds($scan->created_at ?? $scan->updated_at));
+
+            if ($queuedFor <= $grace) {
+                $starter->startIfNeeded();
+
+                return;
+            }
+        }
+
+        (new RunSurfaceScan($scan->id))->handle($scanner, app(SecurityRatingService::class));
+        $scan->refresh();
     }
 
     public function stop(Request $request, Scan $scan, ScanProgressService $progress): RedirectResponse

@@ -30,6 +30,33 @@ class BackgroundScanStarterTest extends TestCase
         ]);
     }
 
+    public function test_boot_workers_spawns_two_workers_by_default(): void
+    {
+        Process::fake();
+
+        (new BackgroundScanStarter)->bootWorkers();
+
+        Process::assertRanTimes([
+            PHP_BINARY,
+            'artisan',
+            'queue:work',
+            'database',
+            '--queue=default',
+            '--once',
+            '--stop-when-empty',
+            '--timeout=300',
+            '--no-interaction',
+        ], 2);
+    }
+
+    public function test_php_binary_resolves_to_a_real_executable(): void
+    {
+        $binary = (new BackgroundScanStarter)->phpBinary();
+
+        $this->assertNotSame('', trim($binary));
+        $this->assertTrue(is_file($binary) || $binary === PHP_BINARY);
+    }
+
     public function test_ensures_async_processing_dispatches_the_scan_job(): void
     {
         Queue::fake();

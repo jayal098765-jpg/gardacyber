@@ -34,7 +34,7 @@
         </span>
         <span class="mono scan-message" id="scanMessage">{{ $initial['message'] }}</span>
       </div>
-      <span class="scan-elapsed mono" id="scanElapsed">{{ $initial['elapsed_seconds'] }}s elapsed</span>
+      <span class="scan-elapsed mono" id="scanElapsed" data-base="{{ $initial['elapsed_seconds'] }}">{{ $initial['elapsed_seconds'] }}s elapsed</span>
     </div>
 
     <div class="scan-progress">
@@ -115,6 +115,26 @@
   const vulnsEl = document.getElementById('scanVulns');
   const incidentsEl = document.getElementById('scanIncidents');
 
+  // Live ticking elapsed counter: the server syncs a baseline on every poll
+  // and the clock ticks every second in between.
+  let baseElapsed = Number(elapsed.dataset.base || '0') || 0;
+  let tickStart = Date.now();
+  let clockFrozen = false;
+
+  function formatElapsed(sec) {
+    if (sec < 60) return sec + 's elapsed';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + 'm ' + s + 's elapsed';
+  }
+
+  function updateClock() {
+    const secs = clockFrozen ? baseElapsed : baseElapsed + Math.floor((Date.now() - tickStart) / 1000);
+    elapsed.textContent = formatElapsed(secs);
+  }
+
+  setInterval(updateClock, 1000);
+
   const STATUS_CLASS = {
     completed: 'ok',
     running: 'run',
@@ -164,7 +184,13 @@
     bar.style.width = p + '%';
     pct.textContent = p + '% Complete';
     eta.textContent = formatEta(data);
-    elapsed.textContent = data.elapsed_seconds + 's elapsed';
+
+    baseElapsed = Number(data.elapsed_seconds) || 0;
+    tickStart = Date.now();
+    clockFrozen = Boolean(data.finished);
+    updateClock();
+
+    box.classList.toggle('is-running', !data.finished);
 
     if (data.message) {
       messageEl.textContent = data.message;
