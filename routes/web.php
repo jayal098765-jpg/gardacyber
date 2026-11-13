@@ -56,7 +56,6 @@ Route::middleware(['auth', EnsureTermsAccepted::class])->group(function () {
     Route::delete('/findings/{finding}', [ResolvedController::class, 'destroy'])->name('findings.destroy');
 
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
-    Route::post('/scans/{scan}/stop', [ActivityController::class, 'stop'])->name('activity.scans.stop');
     Route::delete('/scans/{scan}', [ActivityController::class, 'destroy'])->name('activity.scans.destroy');
 
     Route::get('/scan/new', [ScanController::class, 'create'])->name('scans.new');
